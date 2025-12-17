@@ -10,6 +10,7 @@ export default function Home() {
   const [showNotifications, setShowNotifications] = useState(false)
   const notificationRef = useRef(null)
 
+  // 백엔드 필드(피드 게시글): id, title, author, location, likes, comments, image, tags, date.
   const travelPosts = [
     {
       id: 1,
@@ -57,6 +58,7 @@ export default function Home() {
     },
   ]
 
+  // 백엔드 필드(알림): id, type, user, message, time, read.
   const notifications = [
     {
       id: 1,

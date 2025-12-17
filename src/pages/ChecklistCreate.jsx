@@ -11,6 +11,7 @@ export default function CreateChecklistPage() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
 
+  // 백엔드 필드(체크리스트 생성): title, description (필요 시 ownerId).
   const handleCreate = () => {
     if (title.trim()) {
       // 체크리스트 생성 로직
@@ -114,6 +115,4 @@ export default function CreateChecklistPage() {
     </div>
   )
 }
-
-
 

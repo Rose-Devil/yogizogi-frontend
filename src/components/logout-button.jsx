@@ -8,6 +8,7 @@ export function LogoutButton() {
   const navigate = useNavigate()
   const supabase = createClient()
 
+  // 백엔드 데이터: 현재 인증 세션(추가 필드 필요 없음).
   const handleLogout = async () => {
     setIsLoading(true)
     try {
@@ -31,6 +32,4 @@ export function LogoutButton() {
     </Button>
   )
 }
-
-
 

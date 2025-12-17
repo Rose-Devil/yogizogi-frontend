@@ -1,9 +1,19 @@
-import { Heart, MessageCircle, MapPin, Share2, ChevronLeft, Clock } from "lucide-react"
-import { Link, useParams } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import {
+  Heart,
+  MessageCircle,
+  MapPin,
+  Share2,
+  ChevronLeft,
+  Clock,
+} from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 // 예시 데이터 - 실제로는 ID로 게시글 데이터를 가져옵니다
+// 백엔드 필드(게시글 상세):
+// post: id, title, author, authorAvatar, location, date, likes, comments, image, tags, content
+// commentsList[]: id, author, avatar, content, date, likes
 const postsData = {
   1: {
     id: 1,
@@ -113,11 +123,11 @@ const postsData = {
 도쿄를 방문하신다면 꼭 야경 산책도 해보세요!`,
     commentsList: [],
   },
-}
+};
 
 export default function PostDetail() {
-  const { id } = useParams()
-  const post = postsData[Number.parseInt(id || "1")] || postsData[1]
+  const { id } = useParams();
+  const post = postsData[Number.parseInt(id || "1")] || postsData[1];
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,11 +135,17 @@ export default function PostDetail() {
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+            <Link
+              to="/"
+              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+            >
               <ChevronLeft className="w-6 h-6" />
               <span
                 className="font-semibold"
-                style={{ fontFamily: "Noto Sans KR Black", transform: "translateY(3px)" }}
+                style={{
+                  fontFamily: "Noto Sans KR Black",
+                  transform: "translateY(3px)",
+                }}
               >
                 돌아가기
               </span>
@@ -150,12 +166,18 @@ export default function PostDetail() {
         <article>
           {/* 메인 이미지 */}
           <div className="w-full h-96 rounded-xl overflow-hidden mb-8 bg-secondary">
-            <img src={post.image || "/placeholder.svg"} alt={post.title} className="w-full h-full object-cover" />
+            <img
+              src={post.image || "/placeholder.svg"}
+              alt={post.title}
+              className="w-full h-full object-cover"
+            />
           </div>
 
           {/* 제목 및 기본 정보 */}
           <div className="mb-6">
-            <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">{post.title}</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">
+              {post.title}
+            </h1>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-6 border-b border-border">
               {/* 작가 정보 */}
@@ -196,7 +218,9 @@ export default function PostDetail() {
 
           {/* 본문 */}
           <div className="prose prose-sm max-w-none mb-8">
-            <div className="text-foreground leading-relaxed whitespace-pre-line text-lg">{post.content}</div>
+            <div className="text-foreground leading-relaxed whitespace-pre-line text-lg">
+              {post.content}
+            </div>
           </div>
 
           {/* 상호작용 버튼 */}
@@ -206,7 +230,10 @@ export default function PostDetail() {
                 <Heart className="w-5 h-5" />
                 <span>{post.likes}</span>
               </Button>
-              <Button variant="outline" className="flex items-center gap-2 border-border bg-transparent">
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 border-border bg-transparent"
+              >
                 <MessageCircle className="w-5 h-5" />
                 <span>{post.comments}</span>
               </Button>
@@ -218,12 +245,18 @@ export default function PostDetail() {
 
           {/* 댓글 섹션 */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-6">댓글 ({post.comments})</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              댓글 ({post.comments})
+            </h2>
 
             {/* 댓글 입력 */}
             <Card className="p-4 mb-6 border-border/50">
               <div className="flex gap-3">
-                <img src="/user-profile-avatar.png" alt="프로필" className="w-10 h-10 rounded-full bg-secondary" />
+                <img
+                  src="/user-profile-avatar.png"
+                  alt="프로필"
+                  className="w-10 h-10 rounded-full bg-secondary"
+                />
                 <div className="flex-1">
                   <textarea
                     placeholder="댓글을 작성해주세요..."
@@ -231,7 +264,9 @@ export default function PostDetail() {
                     rows={3}
                   />
                   <div className="flex justify-end mt-2">
-                    <Button className="bg-primary hover:bg-primary/90">댓글 등록</Button>
+                    <Button className="bg-primary hover:bg-primary/90">
+                      댓글 등록
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -250,10 +285,16 @@ export default function PostDetail() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="font-semibold text-foreground">{comment.author}</p>
-                          <p className="text-xs text-muted-foreground">{comment.date}</p>
+                          <p className="font-semibold text-foreground">
+                            {comment.author}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {comment.date}
+                          </p>
                         </div>
-                        <p className="text-foreground mb-2">{comment.content}</p>
+                        <p className="text-foreground mb-2">
+                          {comment.content}
+                        </p>
                         <div className="flex items-center gap-4">
                           <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
                             <Heart className="w-4 h-4" />
@@ -270,7 +311,9 @@ export default function PostDetail() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">아직 댓글이 없어요.</p>
-                  <p className="text-sm text-muted-foreground">첫 댓글을 작성해보세요!</p>
+                  <p className="text-sm text-muted-foreground">
+                    첫 댓글을 작성해보세요!
+                  </p>
                 </div>
               )}
             </div>
@@ -278,10 +321,12 @@ export default function PostDetail() {
 
           {/* 추천 게시글 */}
           <div className="border-t border-border pt-8">
-            <h2 className="text-2xl font-bold text-foreground mb-6">다른 여행기</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-6">
+              다른 여행기
+            </h2>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               {[1, 2].map((id) => {
-                const recPost = postsData[id]
+                const recPost = postsData[id];
                 return (
                   <Link key={id} to={`/post/${id}`}>
                     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50 h-full">
@@ -296,11 +341,13 @@ export default function PostDetail() {
                         <h3 className="font-bold text-foreground line-clamp-2 mb-1 text-sm group-hover:text-primary transition-colors">
                           {recPost.title}
                         </h3>
-                        <p className="text-xs text-muted-foreground">{recPost.author}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {recPost.author}
+                        </p>
                       </div>
                     </Card>
                   </Link>
-                )
+                );
               })}
             </div>
           </div>
@@ -378,5 +425,5 @@ export default function PostDetail() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

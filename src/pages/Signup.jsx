@@ -6,6 +6,7 @@ import { Mail, Lock, User } from "lucide-react"
 const notoSansKR = "Noto Sans KR"
 
 export default function SignupPage() {
+  // 백엔드 필드(회원가입): nickname, email, password, passwordConfirm, termsAccepted, privacyAccepted.
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary flex items-center justify-center px-4">
       <Card className="w-full max-w-md border-border/50 shadow-xl">
@@ -133,6 +134,4 @@ export default function SignupPage() {
     </div>
   )
 }
-
-
 

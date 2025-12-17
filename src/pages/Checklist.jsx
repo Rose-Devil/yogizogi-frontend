@@ -8,6 +8,7 @@ const notoSansKR = "Noto Sans KR"
 
 export default function ChecklistPage() {
   const navigate = useNavigate()
+  // 백엔드 필드(체크리스트 목록 항목): id, title, description, members, itemCount, createdAt.
   const [checklists, setChecklists] = useState([
     {
       id: "1",
@@ -150,6 +151,4 @@ export default function ChecklistPage() {
     </div>
   )
 }
-
-
 

@@ -6,6 +6,7 @@ import { Mail, Lock } from "lucide-react";
 const notoSansKR = "Noto Sans KR";
 
 export default function LoginPage() {
+  // 백엔드 필드(로그인): email, password.
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary flex items-center justify-center px-4">
       <Card className="w-full max-w-md border-border/50 shadow-xl">

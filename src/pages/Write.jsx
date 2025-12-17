@@ -5,6 +5,7 @@ import { MapPin, Calendar, ImageIcon, Trash2, Save } from "lucide-react"
 const notoSansKR = "Noto Sans KR"
 
 export default function WritePage() {
+  // 백엔드 필드(게시글 작성): title, coverImage, location, dateRange, tags, content, galleryImages, allowComments.
   return (
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
@@ -152,6 +153,4 @@ export default function WritePage() {
     </div>
   )
 }
-
-
 

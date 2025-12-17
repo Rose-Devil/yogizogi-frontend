@@ -6,6 +6,7 @@ import { Heart, MessageCircle, MapPin, Edit2, Settings, MoreVertical } from "luc
 const notoSansKR = "Noto Sans KR"
 
 export default function ProfilePage() {
+  // 백엔드 필드(프로필): nickname, bio, followers, following, trips, joinDate, image.
   const userProfile = {
     nickname: "여행러미",
     bio: "세계 여행을 꿈꾸는 여행 블로거입니다. 현재 30개국을 다녀왔습니다.",
@@ -16,6 +17,7 @@ export default function ProfilePage() {
     image: "/user-profile-avatar.png",
   }
 
+  // 백엔드 필드(여행 카드): id, title, location, likes, comments, image, tags, date.
   const myTrips = [
     {
       id: 1,
@@ -189,6 +191,4 @@ export default function ProfilePage() {
     </div>
   )
 }
-
-
 

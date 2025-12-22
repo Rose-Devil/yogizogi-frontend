@@ -1,12 +1,49 @@
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Mail, Lock, User } from "lucide-react"
+import { useState } from "react"
+import { signup } from "@/api/auth"
 
 const notoSansKR = "Noto Sans KR"
 
 export default function SignupPage() {
   // 백엔드 필드(회원가입): nickname, email, password, passwordConfirm, termsAccepted, privacyAccepted
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError("")
+
+    const form = new FormData(e.currentTarget)
+    const formNickname = String(form.get("nickname") ?? "").trim()
+    const formEmail = String(form.get("email") ?? "").trim()
+    const formPassword = String(form.get("password") ?? "")
+
+    if (false) {
+      setError("비밀번호가 일치하지 않습니다.")
+      return
+    }
+    if (!termsAccepted || !privacyAccepted) {
+      setError("약관과 개인정보 처리방침에 동의해주세요.")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      await signup({ nickname: formNickname, email: formEmail, password: formPassword })
+      navigate("/")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary flex items-center justify-center px-4">
       <Card className="w-full max-w-md border-border/50 shadow-xl">
@@ -24,13 +61,14 @@ export default function SignupPage() {
             <p className="text-muted-foreground mt-2">여행 커뮤니티에 가입하세요</p>
           </div>
 
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={onSubmit}>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">닉네임</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="text"
+                  name="nickname"
                   placeholder="여행러미"
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
@@ -43,6 +81,7 @@ export default function SignupPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="email"
+                  name="email"
                   placeholder="your@email.com"
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
@@ -56,6 +95,7 @@ export default function SignupPage() {
                 <input
                   type="password"
                   placeholder="********"
+                  name="password"
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
@@ -76,22 +116,38 @@ export default function SignupPage() {
 
             <div className="space-y-3 bg-secondary/50 p-3 rounded-lg">
               <div className="flex items-start gap-3">
-                <input type="checkbox" id="terms" className="w-4 h-4 rounded mt-1" />
+                <input
+                  type="checkbox"
+                  id="terms"
+                  className="w-4 h-4 rounded mt-1"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                />
                 <label htmlFor="terms" className="text-sm text-foreground cursor-pointer">
                   이용약관에 동의합니다
                 </label>
               </div>
               <div className="flex items-start gap-3">
-                <input type="checkbox" id="privacy" className="w-4 h-4 rounded mt-1" />
+                <input
+                  type="checkbox"
+                  id="privacy"
+                  className="w-4 h-4 rounded mt-1"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                />
                 <label htmlFor="privacy" className="text-sm text-foreground cursor-pointer">
                   개인정보 처리방침에 동의합니다
                 </label>
               </div>
             </div>
 
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
             <Button
+              type="submit"
               className="w-full bg-primary hover:bg-primary/90 py-3 text-base font-medium"
               style={{ fontFamily: notoSansKR, fontWeight: 900 }}
+              disabled={isLoading}
             >
               회원가입
             </Button>

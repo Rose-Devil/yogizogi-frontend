@@ -1,21 +1,25 @@
 import { useEffect, useState } from "react"
-
-function getToken() {
-  if (typeof window === "undefined") return null
-  return window.localStorage.getItem("accessToken")
-}
+import { logout as apiLogout } from "@/api/auth"
+import { getAccessToken } from "@/api/client"
 
 export function useAuthStatus() {
-  const [isAuthed, setIsAuthed] = useState(!!getToken())
+  const [isAuthed, setIsAuthed] = useState(!!getAccessToken())
 
   useEffect(() => {
-    setIsAuthed(!!getToken())
+    const sync = () => setIsAuthed(!!getAccessToken())
+
+    sync()
+    window.addEventListener("auth:changed", sync)
+    window.addEventListener("storage", sync)
+
+    return () => {
+      window.removeEventListener("auth:changed", sync)
+      window.removeEventListener("storage", sync)
+    }
   }, [])
 
-  const logout = () => {
-    if (typeof window === "undefined") return
-    window.localStorage.removeItem("accessToken")
-    setIsAuthed(false)
+  const logout = async () => {
+    await apiLogout()
   }
 
   return { isAuthed, logout }

@@ -1,12 +1,35 @@
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Mail, Lock } from "lucide-react"
+import { useState } from "react"
+import { login } from "@/api/auth"
 
 const notoSansKR = "Noto Sans KR"
 
 export default function LoginPage() {
   // 백엔드 필드(로그인): email, password
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError("")
+    setIsLoading(true)
+
+    try {
+      await login({ email, password })
+      navigate("/")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary flex items-center justify-center px-4">
       <Card className="w-full max-w-md border-border/50 shadow-xl">
@@ -28,7 +51,7 @@ export default function LoginPage() {
             <p className="text-muted-foreground mt-2">여행의 추억을 공유하세요</p>
           </div>
 
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={onSubmit}>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">이메일</label>
               <div className="relative">
@@ -36,6 +59,9 @@ export default function LoginPage() {
                 <input
                   type="email"
                   placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
@@ -48,6 +74,9 @@ export default function LoginPage() {
                 <input
                   type="password"
                   placeholder="********"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
@@ -60,9 +89,13 @@ export default function LoginPage() {
               </label>
             </div>
 
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
             <Button
+              type="submit"
               className="w-full bg-primary hover:bg-primary/90 py-3 text-base font-medium"
               style={{ fontFamily: notoSansKR, fontWeight: 900 }}
+              disabled={isLoading}
             >
               로그인
             </Button>

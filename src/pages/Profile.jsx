@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Heart, MessageCircle, MapPin, Edit2, Settings, MoreVertical } from "lucide-react"
+import { apiJson } from "@/api/client"
 
 const notoSansKR = "Noto Sans KR"
 
@@ -15,9 +16,8 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       setLoading(true)
       try {
-        const meRes = await fetch("/api/auth/me")
-        if (meRes.ok) {
-          const data = await meRes.json()
+        try {
+          const data = await apiJson("/api/auth/me")
           setUserProfile({
             nickname: data.user?.nickname || "",
             bio: data.user?.bio || "",
@@ -27,16 +27,15 @@ export default function ProfilePage() {
             joinDate: data.user?.joinDate || "",
             image: data.user?.image || "/user-profile-avatar.png",
           })
-        } else {
+        } catch {
           setUserProfile(null)
         }
 
-        const postsRes = await fetch("/api/posts?limit=6")
-        if (postsRes.ok) {
-          const posts = await postsRes.json()
+        try {
+          const posts = await apiJson("/api/posts?limit=6")
           const list = Array.isArray(posts) ? posts : posts.items || []
           setMyTrips(list)
-        } else {
+        } catch {
           setMyTrips([])
         }
       } catch (err) {

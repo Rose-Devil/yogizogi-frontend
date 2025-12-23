@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Heart,
   MessageCircle,
@@ -6,6 +6,8 @@ import {
   Share2,
   ChevronLeft,
   Clock,
+  X,
+  Plus,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,10 @@ export default function PostDetail() {
   const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false); // TODO: 실제 로그인 유저 기준으로 교체
   const [likeLoading, setLikeLoading] = useState(false);
+  const [tags, setTags] = useState([]); // 태그 목록 { id, name }
+  const [newTagName, setNewTagName] = useState("");
+  const [tagLoading, setTagLoading] = useState(false);
+  const tagInputRef = useRef(null);
 
   useEffect(() => {
     async function loadPost() {
@@ -49,6 +55,8 @@ export default function PostDetail() {
           commentsList: [], // TODO: 댓글 API 연동 시 수정
         });
         setLikeCount(p.like_count ?? 0);
+        // 태그 목록 저장 (id 포함)
+        setTags(p.tags || []);
       } catch (error) {
         console.error(error);
       } finally {
@@ -89,6 +97,75 @@ export default function PostDetail() {
       console.error(error);
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  // 태그 추가
+  const handleAddTag = async () => {
+    if (!newTagName.trim() || tagLoading) return;
+
+    const tagName = newTagName.trim().replace(/^#/, ""); // # 제거
+    if (!tagName) {
+      setNewTagName("");
+      return;
+    }
+
+    setTagLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${id}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tagName }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.message || "태그 추가 실패");
+      }
+
+      // 새 태그를 목록에 추가
+      setTags([...tags, json.data]);
+      setNewTagName("");
+      // 입력 필드에 포커스 유지 (React 상태 업데이트 후)
+      requestAnimationFrame(() => {
+        tagInputRef.current?.focus();
+      });
+    } catch (error) {
+      console.error("태그 추가 실패:", error);
+      alert(error.message || "태그 추가에 실패했습니다.");
+      // 에러 발생 시에도 포커스 유지
+      requestAnimationFrame(() => {
+        tagInputRef.current?.focus();
+      });
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  // 태그 삭제
+  const handleRemoveTag = async (tagId) => {
+    if (tagLoading) return;
+
+    setTagLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${id}/tags/${tagId}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.message || "태그 삭제 실패");
+      }
+
+      // 태그 목록에서 제거
+      setTags(tags.filter((t) => t.id !== tagId));
+    } catch (error) {
+      console.error("태그 삭제 실패:", error);
+      alert(error.message || "태그 삭제에 실패했습니다.");
+    } finally {
+      setTagLoading(false);
     }
   };
 
@@ -175,15 +252,51 @@ export default function PostDetail() {
             </div>
 
             {/* 태그 */}
-            <div className="flex gap-2 flex-wrap mb-6">
-              {post.tags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full hover:bg-primary/20 transition-colors cursor-pointer"
+            <div className="mb-6">
+              <div className="flex gap-2 flex-wrap mb-3">
+                {tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full hover:bg-primary/20 transition-colors flex items-center gap-2 group"
+                  >
+                    #{tag.name}
+                    <button
+                      onClick={() => handleRemoveTag(tag.id)}
+                      disabled={tagLoading}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
+                      aria-label="태그 삭제"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {/* 태그 추가 입력 */}
+              <div className="flex gap-2">
+                <input
+                  ref={tagInputRef}
+                  type="text"
+                  placeholder="태그 추가 (예: 맛집)"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                  className="flex-1 text-sm px-3 py-1 rounded-lg border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  disabled={tagLoading}
+                />
+                <Button
+                  onClick={handleAddTag}
+                  disabled={tagLoading || !newTagName.trim()}
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90"
                 >
-                  {tag}
-                </span>
-              ))}
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
 

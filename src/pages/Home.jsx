@@ -24,7 +24,6 @@ export default function Home() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasNextPage, setHasNextPage] = useState(true);
-  const loadMoreRef = useRef(null);
 
   // 백엔드 필드(알림): id, type, user, message, time, read.
   const notifications = [
@@ -85,11 +84,18 @@ export default function Home() {
       }
 
       const res = await fetch(`/api/posts?${query.toString()}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const json = await res.json();
 
       if (!json.success) {
         throw new Error(json.message || "게시글 목록 조회 실패");
       }
+
+      console.log("게시글 조회 성공:", json.data?.length || 0, "개");
 
       const mapped = (json.data || []).map((p) => ({
         id: p.id,
@@ -108,11 +114,21 @@ export default function Home() {
           : "",
       }));
 
-      setPosts((prevPosts) => [...prevPosts, ...mapped]);
+      // 초기 로드(cursor가 null)면 교체, 그 외에는 추가
+      if (cursor === null) {
+        setPosts(mapped);
+      } else {
+        setPosts((prevPosts) => [...prevPosts, ...mapped]);
+      }
       setHasNextPage(json.cursorPagination?.hasNextPage ?? false);
       setNextCursor(json.cursorPagination?.nextCursor ?? null);
     } catch (error) {
-      console.error(error);
+      console.error("게시글 로드 실패:", error);
+      console.log(`게시글을 불러오는데 실패했습니다: ${error.message}`);
+      // 에러 발생 시에도 빈 배열로 설정하여 "게시글이 없습니다" 메시지 표시
+      if (cursor === null) {
+        setPosts([]);
+      }
     } finally {
       setLoadingPosts(false);
     }
@@ -122,27 +138,12 @@ export default function Home() {
     loadPosts(); // 초기 로드
   }, []);
 
-  // 무한 스크롤 Intersection Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !loadingPosts) {
-          loadPosts(nextCursor);
-        }
-      },
-      { threshold: 1.0 }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
+  // 더보기 버튼 클릭 핸들러
+  const handleLoadMore = () => {
+    if (hasNextPage && !loadingPosts && nextCursor) {
+      loadPosts(nextCursor);
     }
-
-    return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
-    };
-  }, [hasNextPage, loadingPosts, nextCursor]);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -396,12 +397,17 @@ export default function Home() {
           )}
         </div>
 
-        {/* 무한 스크롤 감지 요소 */}
+        {/* 더보기 버튼 */}
         {hasNextPage && (
-          <div ref={loadMoreRef} className="flex justify-center mt-12">
-            {loadingPosts && (
-              <p className="text-muted-foreground">더 많은 게시글 로딩 중...</p>
-            )}
+          <div className="flex justify-center mt-12">
+            <Button
+              onClick={handleLoadMore}
+              disabled={loadingPosts}
+              variant="outline"
+              className="border-border hover:bg-secondary bg-transparent"
+            >
+              {loadingPosts ? "로딩 중..." : "더 보기"}
+            </Button>
           </div>
         )}
       </main>

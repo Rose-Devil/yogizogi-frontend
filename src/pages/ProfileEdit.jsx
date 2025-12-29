@@ -54,10 +54,11 @@ export default function ProfileEditPage() {
     }
   };
 
-  // 백엔드 필드(프로필 편집): id(수정 불가), nickname, email, verificationCode, password, passwordConfirm, bio
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [originalProfile, setOriginalProfile] = useState(null);
 
   useEffect(() => {
@@ -80,30 +81,49 @@ export default function ProfileEditPage() {
     fetchProfile();
   }, []);
 
-  // const handleCancel = () => {
-  //   if (!originalProfile) return;
+  // 유효성 검사
+  const isNicknameValid = nickname.trim().length > 0;
+  const isPasswordValid =
+    password === "" || (password.length > 0 && password === passwordConfirm);
+  const isFormValid = isNicknameValid && isPasswordValid;
 
-  //   setNickname(originalProfile.nickname || "");
-  //   setEmail(originalProfile.email || "");
-  //   setBio(originalProfile.bio || "");
-  // };
+  // 비밀번호 확인란 배경색
+  const getPasswordConfirmBgColor = () => {
+    if (passwordConfirm === "") return "bg-input";
+    if (password === passwordConfirm) return "bg-green-50 dark:bg-green-950/20";
+    return "bg-red-50 dark:bg-red-950/20";
+  };
 
-  // return;
+  // 닉네임 배경색
+  const getNicknameBgColor = () => {
+    if (nickname.trim().length === 0) return "bg-red-50 dark:bg-red-950/20";
+    return "bg-green-50 dark:bg-green-950/20";
+  };
 
   const handleSaveProfile = async () => {
+    if (!isFormValid) return;
+
     try {
       console.log("편집완료 클릭됨");
 
+      const body = {
+        nickname,
+        email,
+        bio,
+      };
+
+      // 비밀번호가 입력된 경우에만 포함
+      if (password) {
+        body.password = password;
+      }
+
       await apiJson("/api/user/me/profile", {
         method: "PATCH",
-        body: JSON.stringify({
-          nickname,
-          email,
-          bio,
-        }),
+        body: JSON.stringify(body),
       });
 
       alert("프로필이 수정되었습니다");
+      navigate("/profile");
     } catch (err) {
       console.error(err);
       alert("프로필 수정 실패");
@@ -189,6 +209,7 @@ export default function ProfileEditPage() {
                 <p className="text-sm text-destructive">{profileImageError}</p>
               )}
             </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -207,7 +228,7 @@ export default function ProfileEditPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  닉네임
+                  닉네임 *
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -216,9 +237,12 @@ export default function ProfileEditPage() {
                     value={nickname || ""}
                     onChange={(e) => setNickname(e.target.value)}
                     placeholder="닉네임을 입력하세요"
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getNicknameBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                   />
                 </div>
+                {nickname.trim().length === 0 && (
+                  <p className="text-xs text-red-500">닉네임은 필수입니다</p>
+                )}
               </div>
             </div>
 
@@ -279,10 +303,15 @@ export default function ProfileEditPage() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
                     type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="새 비밀번호"
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  비밀번호를 변경하지 않으려면 비워두세요
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -293,10 +322,22 @@ export default function ProfileEditPage() {
                   <CheckCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
                     type="password"
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
                     placeholder="비밀번호 확인"
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getPasswordConfirmBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                   />
                 </div>
+                {passwordConfirm !== "" && password !== passwordConfirm && (
+                  <p className="text-xs text-red-500">
+                    비밀번호가 일치하지 않습니다
+                  </p>
+                )}
+                {passwordConfirm !== "" && password === passwordConfirm && (
+                  <p className="text-xs text-green-500">
+                    비밀번호가 일치합니다
+                  </p>
+                )}
               </div>
             </div>
 
@@ -310,19 +351,15 @@ export default function ProfileEditPage() {
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="나의 여행 스타일이나 관심사를 적어주세요."
                 className="w-full px-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                // defaultValue="세계 여행을 꿈꾸는 여행 블로거입니다. 현재 30개국을 다녀왔습니다."
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" disabled>
-                취소
-              </Button>
-
+            <div className="flex justify-end pt-2">
               <Button
                 type="button"
                 onClick={handleSaveProfile}
-                className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                disabled={!isFormValid}
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontFamily: notoSansKR, fontWeight: 900 }}
               >
                 편집 완료

@@ -12,6 +12,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
+import { apiFetch } from "@/api/client";
 
 const notoSansKR = "Noto Sans KR";
 
@@ -187,9 +188,7 @@ export default function Home() {
       // TODO: 백엔드에 /api/user/me 같은 엔드포인트가 있다면 사용
       let currentUserId = null;
       try {
-        const userRes = await fetch(`/api/user/me`, {
-          credentials: "include",
-        });
+        const userRes = await apiFetch(`/api/user/me`);
         if (userRes.ok) {
           const userJson = await userRes.json();
           if (userJson.success && userJson.data) {

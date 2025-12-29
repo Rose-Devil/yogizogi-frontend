@@ -158,6 +158,7 @@ export default function PostDetail() {
   const tagInputRef = useRef(null);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const shareMenuRef = useRef(null);
+  const [postImages, setPostImages] = useState([]); // 모든 여행 사진 저장
 
   // 현재 사용자 정보 가져오기
   useEffect(() => {
@@ -262,6 +263,12 @@ export default function PostDetail() {
 
         const p = json.data;
 
+        // 모든 여행 사진 저장
+        const images = (p.images || [])
+          .map((img) => img.image_url)
+          .filter(Boolean);
+        setPostImages(images);
+
         setPost({
           id: p.id,
           title: p.title,
@@ -275,11 +282,13 @@ export default function PostDetail() {
           comments: p.comment_count ?? 0,
           image:
             (p.images && p.images[0] && p.images[0].image_url) ||
+            p.thumbnail_url ||
             "/placeholder.svg",
           tags: (p.tags || []).map((t) => `#${t.name}`),
           content: p.content,
         });
         console.log("게시글 작성자 ID:", p.author_id, typeof p.author_id);
+        console.log("게시글 이미지:", images); // 디버깅용
         setLikeCount(p.like_count ?? 0);
         // 태그 목록 저장 (id 포함)
         setTags(p.tags || []);
@@ -606,6 +615,33 @@ export default function PostDetail() {
             </div>
           </div>
 
+          {/* 여행 사진 갤러리 */}
+          {postImages.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
+                여행 사진 ({postImages.length})
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {postImages.map((imageUrl, index) => (
+                  <div
+                    key={index}
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-secondary group cursor-pointer"
+                    onClick={() => {
+                      // 이미지 클릭 시 확대 보기 (간단한 alert 대신 모달 구현 가능)
+                      window.open(imageUrl, "_blank");
+                    }}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`여행 사진 ${index + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 상호작용 버튼 */}
           <div className="border-y border-border py-6 mb-8">
             <div className="flex items-center gap-4">
@@ -664,7 +700,7 @@ export default function PostDetail() {
                         onClick={() => handleShareSNS("twitter")}
                         className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
                       >
-                        🐦 Twitter
+                        🌑 X
                       </button>
                       <button
                         onClick={() => handleShareSNS("link")}

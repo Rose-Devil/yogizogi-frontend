@@ -25,6 +25,7 @@ export default function WritePage() {
   const [content, setContent] = useState("");
   const [allowComments, setAllowComments] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const imageInputRef = useRef(null);
@@ -200,7 +201,12 @@ export default function WritePage() {
       if (thumbnailFile) {
         form.append("thumbnail", thumbnailFile);
       }
-      for (const file of images) {
+
+      // images 배열에서 실제 File 객체만 필터링 (blob URL이 아닌 것들)
+      const imageFiles = images.filter((img) => img instanceof File);
+      console.log("전송할 이미지 파일:", imageFiles.length, "개"); // 디버깅용
+
+      for (const file of imageFiles) {
         form.append("images", file);
       }
 
@@ -249,7 +255,27 @@ export default function WritePage() {
   };
 
   const removeImageAt = (index) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => {
+      const removedUrl = prev[index];
+      // blob URL 정리
+      if (removedUrl && removedUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(removedUrl);
+      }
+      const newPreviews = prev.filter((_, i) => i !== index);
+
+      // 기존 URL 개수 계산 (blob이 아닌 것들)
+      const existingUrlCount = prev.filter(
+        (url) => !url.startsWith("blob:")
+      ).length;
+
+      // 제거된 것이 새로 추가된 파일(blob)인 경우 images에서도 제거
+      if (index >= existingUrlCount) {
+        const fileIndex = index - existingUrlCount;
+        setImages((prevImages) => prevImages.filter((_, i) => i !== fileIndex));
+      }
+
+      return newPreviews;
+    });
   };
 
   const handlePickThumbnail = (e) => {
@@ -259,6 +285,35 @@ export default function WritePage() {
 
   const clearThumbnail = () => {
     setThumbnailFile(null);
+  };
+
+  const handleDelete = async () => {
+    if (!isEditMode || !id) return;
+
+    const confirmed = window.confirm(
+      "정말 이 게시글을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError("");
+
+    try {
+      const res = await apiJson(`/api/posts/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || "게시글 삭제에 실패했습니다.");
+      }
+
+      navigate("/");
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "게시글 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -288,9 +343,20 @@ export default function WritePage() {
 
             {/* 우측 버튼 */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <Link to="/profile">
+              <Link to={isEditMode ? `/post/${id}` : "/"}>
                 <Button variant="ghost">취소</Button>
               </Link>
+              {isEditMode && (
+                <Button
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? "삭제 중..." : "삭제"}
+                </Button>
+              )}
               <Button
                 className="bg-primary hover:bg-primary/90 gap-2"
                 onClick={handleSubmit}
@@ -371,87 +437,6 @@ export default function WritePage() {
                     클릭하거나 드래그해서 업로드
                   </p>
                 </div>
-              </div>
-            </div>
-
-            {/* 태그 */}
-            <div className="mb-8">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                태그
-              </label>
-              <input
-                type="text"
-                placeholder="#여행 #서울 #카페 (쉼표 또는 스페이스로 구분)"
-                className="w-full px-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                태그로 여행기를 더 쉽게 찾을 수 있습니다
-              </p>
-            </div>
-
-            {/* 본문 */}
-            <div className="mb-8">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                여행기 내용
-              </label>
-              <textarea
-                placeholder="당신의 여행 이야기를 자유롭게 작성해주세요..."
-                className="w-full px-4 py-4 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                rows={12}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                마크다운 형식을 지원합니다
-              </p>
-            </div>
-
-            {/* 이미지 갤러리 */}
-            <div className="mb-8 pb-8 border-b border-border">
-              <label className="block text-sm font-medium text-foreground mb-4">
-                여행 사진
-              </label>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-                onChange={handlePickImages}
-              />
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
-                {imagePreviews.map((src, idx) => (
-                  <div
-                    key={`${src}-${idx}`}
-                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-secondary"
-                  >
-                    <img
-                      src={src}
-                      alt={`upload-${idx}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background border border-border"
-                      onClick={() => removeImageAt(idx)}
-                      aria-label="remove image"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-
-                {images.length < 6 && (
-                  <button
-                    type="button"
-                    className="relative aspect-square rounded-lg bg-secondary/50 border-2 border-dashed border-border flex items-center justify-center group cursor-pointer hover:bg-secondary transition-colors"
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    <ImageIcon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </button>
-                )}
               </div>
             </div>
 
@@ -542,6 +527,53 @@ export default function WritePage() {
               </div>
             </div>
 
+            {/* 이미지 갤러리 */}
+            <div className="mb-8 pb-8 border-b border-border">
+              <label className="block text-sm font-medium text-foreground mb-4">
+                여행 사진
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={handlePickImages}
+              />
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+                {imagePreviews.map((src, idx) => (
+                  <div
+                    key={`${src}-${idx}`}
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-secondary"
+                  >
+                    <img
+                      src={src}
+                      alt={`upload-${idx}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background border border-border"
+                      onClick={() => removeImageAt(idx)}
+                      aria-label="remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+
+                {imagePreviews.length < 6 && (
+                  <button
+                    type="button"
+                    className="relative aspect-square rounded-lg bg-secondary/50 border-2 border-dashed border-border flex items-center justify-center group cursor-pointer hover:bg-secondary transition-colors"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    <ImageIcon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* 태그 */}
             <div className="mb-8">
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -576,23 +608,6 @@ export default function WritePage() {
               </p>
             </div>
 
-            {/* 이미지 갤러리 */}
-            <div className="mb-8 pb-8 border-b border-border">
-              <label className="block text-sm font-medium text-foreground mb-4">
-                여행 사진
-              </label>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div
-                    key={i}
-                    className="relative aspect-square rounded-lg bg-secondary/50 border-2 border-dashed border-border flex items-center justify-center group cursor-pointer hover:bg-secondary transition-colors"
-                  >
-                    <ImageIcon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* 설정 */}
             <div className="mb-8 pb-8 border-b border-border space-y-4">
               <div className="flex items-center justify-between">
@@ -613,12 +628,22 @@ export default function WritePage() {
 
             {/* 액션 버튼 */}
             <div className="flex gap-4 justify-end">
-              <Link to="/profile">
+              <Link to={isEditMode ? `/post/${id}` : "/"}>
                 <Button variant="outline" className="gap-2 bg-transparent">
-                  <Trash2 className="w-4 h-4" />
                   취소
                 </Button>
               </Link>
+              {isEditMode && (
+                <Button
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? "삭제 중..." : "삭제하기"}
+                </Button>
+              )}
               <Button
                 className="bg-primary hover:bg-primary/90 gap-2"
                 onClick={handleSubmit}

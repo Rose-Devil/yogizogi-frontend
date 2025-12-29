@@ -125,7 +125,7 @@ export default function Home() {
     setLoadingPopularPosts(true);
     try {
       const query = new URLSearchParams();
-      query.append("limit", "10"); // 더 많은 게시글 가져오기
+      query.append("limit", "9"); // 인기 게시글 9개만 표시
       query.append("sort", "popular");
 
       const res = await fetch(`/api/posts?${query.toString()}`);

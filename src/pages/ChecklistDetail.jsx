@@ -1,52 +1,52 @@
-import { useEffect, useState } from "react"
-import { Link, useParams, useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Plus, ArrowLeft, Share2, Trash2, Check } from "lucide-react"
-import { useAuthStatus } from "@/hooks/useAuthStatus"
+import { useEffect, useState } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Plus, ArrowLeft, Share2, Trash2, Check } from "lucide-react";
+import { useAuthStatus } from "@/hooks/useAuthStatus";
 
-const notoSansKR = "Noto Sans KR"
+const notoSansKR = "Noto Sans KR";
 
 export default function ChecklistDetailPage() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [items, setItems] = useState([])
-  const [members, setMembers] = useState([])
-  const [checklist, setChecklist] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const { isAuthed, logout } = useAuthStatus()
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [checklist, setChecklist] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const { isAuthed, logout } = useAuthStatus();
 
-  const [newItemName, setNewItemName] = useState("")
-  const [newItemAssignee, setNewItemAssignee] = useState("")
-  const [newItemQuantity, setNewItemQuantity] = useState("1")
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemAssignee, setNewItemAssignee] = useState("");
+  const [newItemQuantity, setNewItemQuantity] = useState("1");
 
   useEffect(() => {
     const fetchDetail = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
-        const res = await fetch(`/api/checklists/${id}`)
+        const res = await fetch(`/api/checklists/${id}`);
         if (res.ok) {
-          const data = await res.json()
-          setChecklist(data.checklist || null)
-          setItems(data.items || [])
-          setMembers(data.members || [])
+          const data = await res.json();
+          setChecklist(data.checklist || null);
+          setItems(data.items || []);
+          setMembers(data.members || []);
         } else {
-          setChecklist(null)
-          setItems([])
-          setMembers([])
+          setChecklist(null);
+          setItems([]);
+          setMembers([]);
         }
       } catch (err) {
-        console.error("Failed to load checklist", err)
-        setChecklist(null)
-        setItems([])
-        setMembers([])
+        console.error("Failed to load checklist", err);
+        setChecklist(null);
+        setItems([]);
+        setMembers([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchDetail()
-  }, [id])
+    fetchDetail();
+  }, [id]);
 
   const handleAddItem = () => {
     if (newItemName.trim()) {
@@ -56,29 +56,33 @@ export default function ChecklistDetailPage() {
         assignedTo: newItemAssignee || "미정",
         quantity: Number.parseInt(newItemQuantity) || 1,
         isCompleted: false,
-      }
-      setItems([...items, newItem])
-      setNewItemName("")
-      setNewItemAssignee("")
-      setNewItemQuantity("1")
+      };
+      setItems([...items, newItem]);
+      setNewItemName("");
+      setNewItemAssignee("");
+      setNewItemQuantity("1");
     }
-  }
+  };
 
   const handleToggleItem = (itemId) => {
-    setItems(items.map((item) => (item.id === itemId ? { ...item, isCompleted: !item.isCompleted } : item)))
-  }
+    setItems(
+      items.map((item) =>
+        item.id === itemId ? { ...item, isCompleted: !item.isCompleted } : item
+      )
+    );
+  };
 
   const handleDeleteItem = (itemId) => {
-    setItems(items.filter((item) => item.id !== itemId))
-  }
+    setItems(items.filter((item) => item.id !== itemId));
+  };
 
   const handleLeaveChecklist = () => {
     if (confirm("이 체크리스트에서 나가시겠습니까?")) {
-      navigate("/checklist")
+      navigate("/checklist");
     }
-  }
+  };
 
-  const completedCount = items.filter((item) => item.isCompleted).length
+  const completedCount = items.filter((item) => item.isCompleted).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,26 +90,48 @@ export default function ChecklistDetailPage() {
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="여기저기" className="w-10 h-10 rounded-lg flex-shrink-0" />
+            <Link
+              to="/"
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
+              <img
+                src="/logo.png"
+                alt="여기저기"
+                className="w-10 h-10 rounded-lg flex-shrink-0"
+              />
               <span
                 className="text-xl text-foreground hidden sm:inline"
-                style={{ fontFamily: notoSansKR, fontWeight: 900, transform: "translate(-7px, 1.5px)" }}
+                style={{
+                  fontFamily: notoSansKR,
+                  fontWeight: 900,
+                  transform: "translate(-7px, 1.5px)",
+                }}
               >
                 여기저기
               </span>
             </Link>
 
             <div className="flex items-center gap-2 sm:gap-4">
-              <Button variant="outline" className="border-border hover:bg-secondary bg-transparent gap-2">
+              <Button
+                variant="outline"
+                className="border-border hover:bg-secondary bg-transparent gap-2"
+              >
                 <Share2 className="w-4 h-4" />
                 공유
               </Button>
               {isAuthed && (
                 <>
                   <Link to="/profile">
-                    <Button variant="ghost" size="icon" className="hover:bg-secondary">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-secondary"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                       </svg>
                     </Button>
@@ -137,19 +163,29 @@ export default function ChecklistDetailPage() {
       <main className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* 페이지 제목 및 진행률 */}
         <div className="mb-8">
-          <Link to="/checklist" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors mb-4">
+          <Link
+            to="/checklist"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors mb-4"
+          >
             <ArrowLeft className="w-4 h-4" />
             돌아가기
           </Link>
           {loading ? (
-            <div className="text-muted-foreground">체크리스트를 불러오는 중...</div>
+            <div className="text-muted-foreground">
+              체크리스트를 불러오는 중...
+            </div>
           ) : (
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-black text-foreground mb-2" style={{ fontFamily: notoSansKR }}>
+                <h1
+                  className="text-3xl font-black text-foreground mb-2"
+                  style={{ fontFamily: notoSansKR }}
+                >
                   {checklist?.title ?? "체크리스트"}
                 </h1>
-                <p className="text-muted-foreground">{checklist?.description}</p>
+                <p className="text-muted-foreground">
+                  {checklist?.description}
+                </p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-primary mb-1">
@@ -164,7 +200,11 @@ export default function ChecklistDetailPage() {
           <div className="w-full bg-secondary rounded-full h-2 mb-8">
             <div
               className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${items.length ? (completedCount / items.length) * 100 : 0}%` }}
+              style={{
+                width: `${
+                  items.length ? (completedCount / items.length) * 100 : 0
+                }%`,
+              }}
             />
           </div>
         </div>
@@ -173,7 +213,10 @@ export default function ChecklistDetailPage() {
           {/* 체크리스트 항목 */}
           <div className="lg:col-span-2">
             <Card className="border-border/50 p-6 mb-6">
-              <h2 className="text-lg font-black text-foreground mb-4" style={{ fontFamily: notoSansKR }}>
+              <h2
+                className="text-lg font-black text-foreground mb-4"
+                style={{ fontFamily: notoSansKR }}
+              >
                 준비물 추가
               </h2>
 
@@ -204,7 +247,10 @@ export default function ChecklistDetailPage() {
                   />
                 </div>
 
-                <Button onClick={handleAddItem} className="w-full bg-primary hover:bg-primary/90 gap-2">
+                <Button
+                  onClick={handleAddItem}
+                  className="w-full bg-primary hover:bg-primary/90 gap-2"
+                >
                   <Plus className="w-4 h-4" />
                   추가
                 </Button>
@@ -213,7 +259,10 @@ export default function ChecklistDetailPage() {
 
             {/* 체크리스트 항목 목록 */}
             <Card className="border-border/50 p-6">
-              <h2 className="text-lg font-black text-foreground mb-4" style={{ fontFamily: notoSansKR }}>
+              <h2
+                className="text-lg font-black text-foreground mb-4"
+                style={{ fontFamily: notoSansKR }}
+              >
                 준비물 목록
               </h2>
 
@@ -226,14 +275,24 @@ export default function ChecklistDetailPage() {
                     <button
                       onClick={() => handleToggleItem(item.id)}
                       className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                        item.isCompleted ? "bg-primary border-primary" : "border-border hover:border-primary"
+                        item.isCompleted
+                          ? "bg-primary border-primary"
+                          : "border-border hover:border-primary"
                       }`}
                     >
-                      {item.isCompleted && <Check className="w-4 h-4 text-white" />}
+                      {item.isCompleted && (
+                        <Check className="w-4 h-4 text-white" />
+                      )}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <p className={`font-medium ${item.isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                      <p
+                        className={`font-medium ${
+                          item.isCompleted
+                            ? "text-muted-foreground line-through"
+                            : "text-foreground"
+                        }`}
+                      >
                         {item.name}
                       </p>
                       <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
@@ -250,7 +309,11 @@ export default function ChecklistDetailPage() {
                     </button>
                   </div>
                 ))}
-                {items.length === 0 && <p className="text-sm text-muted-foreground">준비물이 없습니다.</p>}
+                {items.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    준비물이 없습니다.
+                  </p>
+                )}
               </div>
             </Card>
           </div>
@@ -258,20 +321,34 @@ export default function ChecklistDetailPage() {
           {/* 사이드바 - 팀 멤버 */}
           <div className="lg:col-span-1">
             <Card className="border-border/50 p-6 sticky top-24">
-              <h3 className="text-lg font-black text-foreground mb-4" style={{ fontFamily: notoSansKR }}>
+              <h3
+                className="text-lg font-black text-foreground mb-4"
+                style={{ fontFamily: notoSansKR }}
+              >
                 팀 멤버 ({members.length})
               </h3>
 
               <div className="space-y-3 mb-6">
                 {members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                  >
                     <div>
-                      <p className="font-medium text-foreground text-sm">{member.name}</p>
-                      <p className="text-xs text-muted-foreground">{member.role}</p>
+                      <p className="font-medium text-foreground text-sm">
+                        {member.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {member.role}
+                      </p>
                     </div>
                   </div>
                 ))}
-                {members.length === 0 && <p className="text-sm text-muted-foreground">멤버 정보가 없습니다.</p>}
+                {members.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    멤버 정보가 없습니다.
+                  </p>
+                )}
               </div>
 
               <div className="border-t border-border/50 pt-4">
@@ -289,5 +366,5 @@ export default function ChecklistDetailPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

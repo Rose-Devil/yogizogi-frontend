@@ -94,10 +94,12 @@ export default function ProfileEditPage() {
     try {
       console.log("편집완료 클릭됨");
 
-      await apiJson("/api/users/me/nickname", {
+      await apiJson("/api/user/me/profile", {
         method: "PATCH",
         body: JSON.stringify({
           nickname,
+          email,
+          bio,
         }),
       });
 

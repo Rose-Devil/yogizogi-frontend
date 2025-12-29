@@ -9,12 +9,13 @@ import {
   X,
   Plus,
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 import { getComments, createComment, createReply } from "@/api/comments";
 import { apiJson } from "@/api/client";
+import { me } from "@/api/auth";
 
 // 재귀적 댓글 컴포넌트 (외부로 이동)
 const CommentItem = ({
@@ -134,7 +135,9 @@ const CommentItem = ({
 
 export default function PostDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [post, setPost] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [comments, setComments] = useState([]); // 댓글 목록 상태 분리
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -153,6 +156,99 @@ export default function PostDetail() {
   const [replyLoading, setReplyLoading] = useState(false); // 답글 전송 로딩
 
   const tagInputRef = useRef(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const shareMenuRef = useRef(null);
+
+  // 현재 사용자 정보 가져오기
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const userData = await me();
+        console.log("사용자 정보:", userData);
+        const userId =
+          userData?.user?.id || userData?.data?.id || userData?.data?.user?.id;
+        if (userId) {
+          setCurrentUserId(userId);
+          console.log("현재 사용자 ID:", userId);
+        }
+      } catch (error) {
+        console.error("사용자 정보 가져오기 실패:", error);
+      }
+    }
+    loadCurrentUser();
+  }, []);
+
+  // 공유 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(event.target)
+      ) {
+        setShowShareMenu(false);
+      }
+    };
+
+    if (showShareMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showShareMenu]);
+
+  // URL 복사 함수
+  const handleCopyUrl = async () => {
+    const url = `${window.location.origin}/post/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("URL이 클립보드에 복사되었습니다!");
+      setShowShareMenu(false);
+    } catch (error) {
+      console.error("URL 복사 실패:", error);
+      alert("URL 복사에 실패했습니다.");
+    }
+  };
+
+  // SNS 공유 함수
+  const handleShareSNS = (platform) => {
+    const url = `${window.location.origin}/post/${id}`;
+    const title = post?.title || "여행기";
+    const text = post?.content?.substring(0, 100) || "";
+
+    let shareUrl = "";
+
+    switch (platform) {
+      case "kakao":
+        // 카카오톡 공유 (더미)
+        shareUrl = `https://story.kakao.com/share?url=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "facebook":
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "twitter":
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(
+          url
+        )}&text=${encodeURIComponent(title)}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "link":
+        shareUrl = `https://story.kakao.com/share?url=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      default:
+        break;
+    }
+
+    setShowShareMenu(false);
+  };
 
   useEffect(() => {
     async function loadPost() {
@@ -170,6 +266,7 @@ export default function PostDetail() {
           id: p.id,
           title: p.title,
           author: p.author_name || p.author || "작성자",
+          authorId: p.author_id,
           authorAvatar: p.author_avatar || "/user-profile-avatar.png",
           location: p.region || p.location || "한국",
           date: p.created_at
@@ -182,6 +279,7 @@ export default function PostDetail() {
           tags: (p.tags || []).map((t) => `#${t.name}`),
           content: p.content,
         });
+        console.log("게시글 작성자 ID:", p.author_id, typeof p.author_id);
         setLikeCount(p.like_count ?? 0);
         // 태그 목록 저장 (id 포함)
         setTags(p.tags || []);
@@ -194,12 +292,12 @@ export default function PostDetail() {
           console.error("댓글 로딩 실패:", e);
         }
 
-        // 확인 현재 사용자의 좋아요 상태 (no auth needed)
+        // 확인 현재 사용자의 좋아요 상태
         try {
-          const res = await fetch(`/api/posts/${id}/likes`);
-          const json = await res.json();
-          if (json.success && json.data?.isLiked !== undefined) {
-            setIsLiked(json.data.isLiked);
+          const res = await apiJson(`/api/posts/${id}/likes`);
+          if (res.success && res.data) {
+            setIsLiked(res.data.isLiked ?? false);
+            setLikeCount(res.data.likeCount ?? 0);
           }
         } catch (error) {
           console.error("좋아요 상태 확인 실패:", error);
@@ -248,13 +346,17 @@ export default function PostDetail() {
 
     setLikeLoading(true);
     try {
-      const method = isLiked ? "DELETE" : "POST";
-      const res = await apiJson(`/api/posts/${post.id}/likes`, { method });
-      // res contains likeCount and isLiked
-      setLikeCount(res.likeCount ?? likeCount);
-      setIsLiked(res.isLiked);
+      // 백엔드는 POST로 토글 (이미 좋아요가 있으면 취소, 없으면 추가)
+      const res = await apiJson(`/api/posts/${post.id}/likes`, {
+        method: "POST",
+      });
+      // 백엔드 응답 형식: { success: true, data: { likeCount, isLiked } }
+      if (res.success && res.data) {
+        setLikeCount(res.data.likeCount ?? likeCount);
+        setIsLiked(res.data.isLiked ?? isLiked);
+      }
     } catch (error) {
-      console.error(error);
+      console.error("좋아요 처리 실패:", error);
     } finally {
       setLikeLoading(false);
     }
@@ -285,6 +387,105 @@ export default function PostDetail() {
     } finally {
       setReplyLoading(false);
     }
+  };
+
+  // 재귀적 댓글 컴포넌트
+  const CommentItem = ({ comment }) => {
+    const isReplying = replyTargetId === comment.id;
+
+    return (
+      <div className="flex flex-col gap-3">
+        <Card className="p-4 border-border/50">
+          <div className="flex gap-3">
+            <img
+              src={comment.author?.profile_image || "/user-profile-avatar.png"} // Default avatar path fix
+              alt={comment.author?.nickname || comment.author || "작성자"}
+              className="w-10 h-10 rounded-full bg-secondary"
+            />
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold text-foreground">
+                  {comment.author?.nickname || comment.author || "작성자"}
+                </p>
+                <div className="flex items-center gap-2">
+                  {comment.is_ai && (
+                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                      AI Bot
+                    </span>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(
+                      comment.created_at || comment.createdAt || comment.date
+                    ).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <p className="text-foreground mb-2 whitespace-pre-wrap">
+                {comment.content}
+              </p>
+              <div className="flex items-center gap-4">
+                <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
+                  <Heart className="w-4 h-4" />
+                  <span>{comment.likes || 0}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (replyTargetId === comment.id) {
+                      setReplyTargetId(null);
+                    } else {
+                      setReplyTargetId(comment.id);
+                      setReplyContent("");
+                    }
+                  }}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {isReplying ? "취소" : "답글달기"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* 답글 입력 폼 */}
+        {isReplying && (
+          <div className="ml-12 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <textarea
+                  placeholder={`@${
+                    comment.author?.nickname || "작성자"
+                  } 님에게 답글 작성...`}
+                  className="w-full bg-secondary/50 text-foreground placeholder-muted-foreground rounded-lg px-4 py-3 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                  rows={2}
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  autoFocus
+                />
+                <div className="flex justify-end mt-2">
+                  <Button
+                    size="sm"
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={handleSubmitReply}
+                    disabled={replyLoading}
+                  >
+                    {replyLoading ? "등록 중..." : "답글 등록"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 대댓글 렌더링 (재귀) */}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="ml-12 border-l-2 border-border/50 pl-4 space-y-4">
+            {comment.replies.map((reply) => (
+              <CommentItem key={reply.id} comment={reply} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // 태그 추가
@@ -386,6 +587,16 @@ export default function PostDetail() {
               </span>
             </Link>
             <div className="flex items-center gap-2">
+              {/* 임시: 모든 게시글에 수정 버튼 표시 (나중에 조건 추가) */}
+              {post && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/post/${id}/edit`)}
+                >
+                  수정
+                </Button>
+              )}
               <Link to="/profile">
                 <Button variant="ghost" size="sm">
                   프로필
@@ -519,9 +730,51 @@ export default function PostDetail() {
                 <MessageCircle className="w-5 h-5" />
                 <span>{post.comments}</span>
               </Button>
-              <Button variant="ghost" className="ml-auto">
-                <Share2 className="w-5 h-5" />
-              </Button>
+              <div className="relative ml-auto" ref={shareMenuRef}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="relative"
+                >
+                  <Share2 className="w-5 h-5" />
+                </Button>
+                {showShareMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                    <button
+                      onClick={handleCopyUrl}
+                      className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                    >
+                      📋 URL 복사
+                    </button>
+                    <div className="border-t border-border">
+                      <button
+                        onClick={() => handleShareSNS("kakao")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        💬 카카오톡
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("facebook")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        📘 Facebook
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("twitter")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        🐦 Twitter
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("link")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        🔗 링크 공유
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

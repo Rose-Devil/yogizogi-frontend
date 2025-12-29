@@ -349,6 +349,29 @@ export default function Home() {
     }
   }, [isAuthed]);
 
+  // 주기적으로 알림 새로고침 (30초마다)
+  useEffect(() => {
+    if (!isAuthed) return;
+
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 30000); // 30초마다
+
+    return () => clearInterval(interval);
+  }, [isAuthed]);
+
+  // 페이지 포커스 시 알림 새로고침
+  useEffect(() => {
+    if (!isAuthed) return;
+
+    const handleFocus = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [isAuthed]);
+
   // 더보기 버튼 클릭 핸들러
   const handleLoadMore = () => {
     if (hasNextPage && !loadingPosts && nextCursor) {

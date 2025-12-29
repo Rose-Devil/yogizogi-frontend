@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "")
   const apiTarget = env.VITE_API_TARGET || "http://localhost:4000"
 
+  console.log("API Target:", apiTarget);
+
   return {
     root: __dirname,
     plugins: [react()],

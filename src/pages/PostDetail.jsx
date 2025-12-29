@@ -16,6 +16,122 @@ import { Card } from "@/components/ui/card";
 import { getComments, createComment, createReply } from "@/api/comments";
 import { apiJson } from "@/api/client";
 
+// 재귀적 댓글 컴포넌트 (외부로 이동)
+const CommentItem = ({
+  comment,
+  replyTargetId,
+  setReplyTargetId,
+  setReplyContent,
+  replyContent,
+  handleSubmitReply,
+  replyLoading,
+}) => {
+  const isReplying = replyTargetId === comment.id;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Card className="p-4 border-border/50">
+        <div className="flex gap-3">
+          <img
+            src={comment.author?.profile_image || "/user-profile-avatar.png"}
+            alt={comment.author?.nickname || comment.author || "작성자"}
+            className="w-10 h-10 rounded-full bg-secondary"
+          />
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-semibold text-foreground">
+                {comment.author?.nickname || comment.author || "작성자"}
+              </p>
+              <div className="flex items-center gap-2">
+                {comment.is_ai && (
+                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                    AI Bot
+                  </span>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {new Date(
+                    comment.created_at || comment.createdAt || comment.date
+                  ).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <p className="text-foreground mb-2 whitespace-pre-wrap">
+              {comment.content}
+            </p>
+            <div className="flex items-center gap-4">
+              <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Heart className="w-4 h-4" />
+                <span>{comment.likes || 0}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (replyTargetId === comment.id) {
+                    setReplyTargetId(null);
+                  } else {
+                    setReplyTargetId(comment.id);
+                    setReplyContent("");
+                  }
+                }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                {isReplying ? "취소" : "답글달기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 답글 입력 폼 */}
+      {isReplying && (
+        <div className="ml-12 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <textarea
+                placeholder={`@${
+                  comment.author?.nickname || "작성자"
+                } 님에게 답글 작성...`}
+                className="w-full bg-secondary/50 text-foreground placeholder-muted-foreground rounded-lg px-4 py-3 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                rows={2}
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                autoFocus
+              />
+              <div className="flex justify-end mt-2">
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={handleSubmitReply}
+                  disabled={replyLoading}
+                >
+                  {replyLoading ? "등록 중..." : "답글 등록"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 대댓글 렌더링 (재귀) */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="ml-12 border-l-2 border-border/50 pl-4 space-y-4">
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              replyTargetId={replyTargetId}
+              setReplyTargetId={setReplyTargetId}
+              setReplyContent={setReplyContent}
+              replyContent={replyContent}
+              handleSubmitReply={handleSubmitReply}
+              replyLoading={replyLoading}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function PostDetail() {
   const { id } = useParams();
   const [post, setPost] = useState(null);
@@ -161,105 +277,14 @@ export default function PostDetail() {
     try {
       await createReply(id, replyTargetId, replyContent.trim());
       await fetchComments(); // 재요청하여 목록 갱신
-      setReplyContent('');
+      setReplyContent("");
       setReplyTargetId(null);
     } catch (e) {
-      console.error('답글 등록 실패:', e);
-      alert('답글을 등록하지 못했습니다.');
+      console.error("답글 등록 실패:", e);
+      alert("답글을 등록하지 못했습니다.");
     } finally {
       setReplyLoading(false);
     }
-  };
-
-  // 재귀적 댓글 컴포넌트
-  const CommentItem = ({ comment }) => {
-    const isReplying = replyTargetId === comment.id;
-
-    return (
-      <div className="flex flex-col gap-3">
-        <Card className="p-4 border-border/50">
-          <div className="flex gap-3">
-            <img
-              src={comment.author?.profile_image || "/user-profile-avatar.png"} // Default avatar path fix
-              alt={comment.author?.nickname || comment.author || "작성자"}
-              className="w-10 h-10 rounded-full bg-secondary"
-            />
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-semibold text-foreground">
-                  {comment.author?.nickname || comment.author || "작성자"}
-                </p>
-                <div className="flex items-center gap-2">
-                  {comment.is_ai && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">AI Bot</span>}
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(comment.created_at || comment.createdAt || comment.date).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <p className="text-foreground mb-2 whitespace-pre-wrap">
-                {comment.content}
-              </p>
-              <div className="flex items-center gap-4">
-                <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-                  <Heart className="w-4 h-4" />
-                  <span>{comment.likes || 0}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    if (replyTargetId === comment.id) {
-                      setReplyTargetId(null);
-                    } else {
-                      setReplyTargetId(comment.id);
-                      setReplyContent("");
-                    }
-                  }}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {isReplying ? "취소" : "답글달기"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* 답글 입력 폼 */}
-        {isReplying && (
-          <div className="ml-12 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <textarea
-                  placeholder={`@${comment.author?.nickname || "작성자"} 님에게 답글 작성...`}
-                  className="w-full bg-secondary/50 text-foreground placeholder-muted-foreground rounded-lg px-4 py-3 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                  rows={2}
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  autoFocus
-                />
-                <div className="flex justify-end mt-2">
-                  <Button
-                    size="sm"
-                    className="bg-primary hover:bg-primary/90"
-                    onClick={handleSubmitReply}
-                    disabled={replyLoading}
-                  >
-                    {replyLoading ? "등록 중..." : "답글 등록"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 대댓글 렌더링 (재귀) */}
-        {comment.replies && comment.replies.length > 0 && (
-          <div className="ml-12 border-l-2 border-border/50 pl-4 space-y-4">
-            {comment.replies.map((reply) => (
-              <CommentItem key={reply.id} comment={reply} />
-            ))}
-          </div>
-        )}
-      </div>
-    );
   };
 
   // 태그 추가
@@ -473,10 +498,11 @@ export default function PostDetail() {
           <div className="border-y border-border py-6 mb-8">
             <div className="flex items-center gap-4">
               <Button
-                className={`flex items-center gap-2 ${isLiked
-                  ? "bg-red-500 hover:bg-red-600"
-                  : "bg-primary hover:bg-primary/90"
-                  }`}
+                className={`flex items-center gap-2 ${
+                  isLiked
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-primary hover:bg-primary/90"
+                }`}
                 onClick={handleToggleLike}
                 disabled={likeLoading}
               >
@@ -528,12 +554,15 @@ export default function PostDetail() {
                         if (!commentContent.trim()) return;
                         setCommentLoading(true);
                         try {
-                          const newComment = await createComment(id, commentContent.trim());
+                          const newComment = await createComment(
+                            id,
+                            commentContent.trim()
+                          );
                           setComments((prev) => [...prev, newComment]);
-                          setCommentContent('');
+                          setCommentContent("");
                         } catch (e) {
-                          console.error('댓글 등록 실패:', e);
-                          alert('댓글을 등록하지 못했습니다.');
+                          console.error("댓글 등록 실패:", e);
+                          alert("댓글을 등록하지 못했습니다.");
                         } finally {
                           setCommentLoading(false);
                         }
@@ -551,7 +580,16 @@ export default function PostDetail() {
             <div className="space-y-4">
               {comments.length > 0 ? (
                 comments.map((comment) => (
-                  <CommentItem key={comment.id} comment={comment} />
+                  <CommentItem
+                    key={comment.id}
+                    comment={comment}
+                    replyTargetId={replyTargetId}
+                    setReplyTargetId={setReplyTargetId}
+                    setReplyContent={setReplyContent}
+                    replyContent={replyContent}
+                    handleSubmitReply={handleSubmitReply}
+                    replyLoading={replyLoading}
+                  />
                 ))
               ) : (
                 <div className="text-center py-8">

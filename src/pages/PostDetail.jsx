@@ -9,13 +9,22 @@ import {
   X,
   Plus,
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
+import { getComments, createComment, createReply } from "@/api/comments";
+import { apiJson } from "@/api/client";
+import { me } from "@/api/auth";
+
 export default function PostDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [post, setPost] = useState(null);
+
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [comments, setComments] = useState([]); // 댓글 목록 상태 분리
+
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
@@ -25,6 +34,99 @@ export default function PostDetail() {
   const [newTagName, setNewTagName] = useState("");
   const [tagLoading, setTagLoading] = useState(false);
   const tagInputRef = useRef(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const shareMenuRef = useRef(null);
+
+  // 현재 사용자 정보 가져오기
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const userData = await me();
+        console.log("사용자 정보:", userData);
+        const userId =
+          userData?.user?.id || userData?.data?.id || userData?.data?.user?.id;
+        if (userId) {
+          setCurrentUserId(userId);
+          console.log("현재 사용자 ID:", userId);
+        }
+      } catch (error) {
+        console.error("사용자 정보 가져오기 실패:", error);
+      }
+    }
+    loadCurrentUser();
+  }, []);
+
+  // 공유 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(event.target)
+      ) {
+        setShowShareMenu(false);
+      }
+    };
+
+    if (showShareMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showShareMenu]);
+
+  // URL 복사 함수
+  const handleCopyUrl = async () => {
+    const url = `${window.location.origin}/post/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("URL이 클립보드에 복사되었습니다!");
+      setShowShareMenu(false);
+    } catch (error) {
+      console.error("URL 복사 실패:", error);
+      alert("URL 복사에 실패했습니다.");
+    }
+  };
+
+  // SNS 공유 함수
+  const handleShareSNS = (platform) => {
+    const url = `${window.location.origin}/post/${id}`;
+    const title = post?.title || "여행기";
+    const text = post?.content?.substring(0, 100) || "";
+
+    let shareUrl = "";
+
+    switch (platform) {
+      case "kakao":
+        // 카카오톡 공유 (더미)
+        shareUrl = `https://story.kakao.com/share?url=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "facebook":
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "twitter":
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(
+          url
+        )}&text=${encodeURIComponent(title)}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "link":
+        shareUrl = `https://story.kakao.com/share?url=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      default:
+        break;
+    }
+
+    setShowShareMenu(false);
+  };
 
   useEffect(() => {
     async function loadPost() {
@@ -42,6 +144,7 @@ export default function PostDetail() {
           id: p.id,
           title: p.title,
           author: p.author_name || p.author || "작성자",
+          authorId: p.author_id,
           authorAvatar: p.author_avatar || "/user-profile-avatar.png",
           location: p.region || p.location || "한국",
           date: p.created_at
@@ -55,19 +158,25 @@ export default function PostDetail() {
           content: p.content,
           commentsList: [], // TODO: 댓글 API 연동 시 수정
         });
+        console.log("게시글 작성자 ID:", p.author_id, typeof p.author_id);
         setLikeCount(p.like_count ?? 0);
         // 태그 목록 저장 (id 포함)
         setTags(p.tags || []);
 
-        // 사용자가 좋아요 눌렀는지 확인 (임시로 userId: 1 사용)
-        const userId = 1; // TODO: 실제 로그인 유저 ID로 교체
+        // 댓글 목록 로딩
         try {
-          const likeRes = await fetch(
-            `/api/posts/${id}/likes?userId=${userId}`
-          );
-          const likeJson = await likeRes.json();
-          if (likeJson.success && likeJson.data.isLiked !== undefined) {
-            setIsLiked(likeJson.data.isLiked);
+          const commentData = await getComments(id);
+          setComments(commentData || []);
+        } catch (e) {
+          console.error("댓글 로딩 실패:", e);
+        }
+
+        // 확인 현재 사용자의 좋아요 상태
+        try {
+          const res = await apiJson(`/api/posts/${id}/likes`);
+          if (res.success && res.data) {
+            setIsLiked(res.data.isLiked ?? false);
+            setLikeCount(res.data.likeCount ?? 0);
           }
         } catch (error) {
           console.error("좋아요 상태 확인 실패:", error);
@@ -116,27 +225,17 @@ export default function PostDetail() {
 
     setLikeLoading(true);
     try {
-      const method = isLiked ? "DELETE" : "POST";
-      const res = await fetch(`/api/posts/${post.id}/likes`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: 1, // TODO: 실제 로그인한 유저 ID로 교체
-        }),
+      // 백엔드는 POST로 토글 (이미 좋아요가 있으면 취소, 없으면 추가)
+      const res = await apiJson(`/api/posts/${post.id}/likes`, {
+        method: "POST",
       });
-
-      const json = await res.json();
-      if (!json.success) {
-        throw new Error(json.message || "좋아요 처리에 실패했습니다.");
+      // 백엔드 응답 형식: { success: true, data: { likeCount, isLiked } }
+      if (res.success && res.data) {
+        setLikeCount(res.data.likeCount ?? likeCount);
+        setIsLiked(res.data.isLiked ?? isLiked);
       }
-
-      const nextCount = json.data?.likeCount ?? likeCount;
-      setLikeCount(nextCount);
-      setIsLiked(!isLiked);
     } catch (error) {
-      console.error(error);
+      console.error("좋아요 처리 실패:", error);
     } finally {
       setLikeLoading(false);
     }
@@ -241,6 +340,16 @@ export default function PostDetail() {
               </span>
             </Link>
             <div className="flex items-center gap-2">
+              {/* 임시: 모든 게시글에 수정 버튼 표시 (나중에 조건 추가) */}
+              {post && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/post/${id}/edit`)}
+                >
+                  수정
+                </Button>
+              )}
               <Link to="/profile">
                 <Button variant="ghost" size="sm">
                   프로필
@@ -374,9 +483,51 @@ export default function PostDetail() {
                 <MessageCircle className="w-5 h-5" />
                 <span>{post.comments}</span>
               </Button>
-              <Button variant="ghost" className="ml-auto">
-                <Share2 className="w-5 h-5" />
-              </Button>
+              <div className="relative ml-auto" ref={shareMenuRef}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="relative"
+                >
+                  <Share2 className="w-5 h-5" />
+                </Button>
+                {showShareMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                    <button
+                      onClick={handleCopyUrl}
+                      className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                    >
+                      📋 URL 복사
+                    </button>
+                    <div className="border-t border-border">
+                      <button
+                        onClick={() => handleShareSNS("kakao")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        💬 카카오톡
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("facebook")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        📘 Facebook
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("twitter")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        🐦 Twitter
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("link")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        🔗 링크 공유
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

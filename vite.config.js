@@ -1,14 +1,14 @@
-import { defineConfig, loadEnv } from "vite"
-import react from '@vitejs/plugin-react'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { defineConfig, loadEnv } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, __dirname, "")
-  const apiTarget = env.VITE_API_TARGET || "http://localhost:4002"
+  const env = loadEnv(mode, __dirname, "");
+  const apiTarget = env.VITE_API_TARGET || "http://localhost:9090";
 
   return {
     root: __dirname,
@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: apiTarget,
           changeOrigin: true,
+          secure: false,
+          ws: true, // WebSocket 지원
+        },
+        "/uploads": {
+          target: apiTarget,
+          changeOrigin: true,
         },
       },
     },
@@ -31,5 +37,5 @@ export default defineConfig(({ mode }) => {
       outDir: path.resolve(__dirname, "dist"),
       emptyOutDir: true,
     },
-  }
-})
+  };
+});

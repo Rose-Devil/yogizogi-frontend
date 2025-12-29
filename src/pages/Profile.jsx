@@ -25,7 +25,7 @@ export default function ProfilePage() {
             following: data.user?.following ?? 0,
             trips: data.user?.trips ?? 0,
             joinDate: data.user?.joinDate || "",
-            image: data.user?.image || "/user-profile-avatar.png",
+            image: data.user?.image || data.user?.url || "/user-profile-avatar.png",
           })
         } catch {
           setUserProfile(null)

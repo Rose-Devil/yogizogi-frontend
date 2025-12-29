@@ -26,7 +26,6 @@ export default function WritePage() {
   const [allowComments, setAllowComments] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
   const [loading, setLoading] = useState(false);
   const imageInputRef = useRef(null);
   const thumbnailInputRef = useRef(null);
@@ -51,14 +50,13 @@ export default function WritePage() {
       const loadPost = async () => {
         setLoading(true);
         try {
-          const res = await fetch(`/api/posts/${id}`);
-          const json = await res.json();
+          const res = await apiJson(`/api/posts/${id}`);
 
-          if (!json.success) {
-            throw new Error(json.message || "게시글 로딩 실패");
+          if (!res.success) {
+            throw new Error(res.message || "게시글 로딩 실패");
           }
 
-          const post = json.data;
+          const post = res.data;
 
           // 폼 데이터 설정
           setTitle(post.title || "");
@@ -85,14 +83,14 @@ export default function WritePage() {
             setSelectedRange({ from: startDate, to: null });
           }
 
-          // 이미지 설정
+          // 이미지 설정 (기존 이미지 URL)
           if (post.images && post.images.length > 0) {
             setImagePreviews(
               post.images.map((img) => img.image_url || "/placeholder.svg")
             );
           }
 
-          // 썸네일 설정
+          // 썸네일 설정 (기존 썸네일 URL)
           if (post.thumbnail_url) {
             setThumbnailPreview(post.thumbnail_url);
           }
@@ -108,9 +106,14 @@ export default function WritePage() {
     }
   }, [isEditMode, id]);
 
+  // 이미지 파일 변경 시 미리보기 URL 생성
   useEffect(() => {
     const urls = images.map((f) => URL.createObjectURL(f));
-    setImagePreviews(urls);
+    setImagePreviews((prev) => {
+      // 기존 URL 미리보기와 새로 업로드된 파일 미리보기를 합침
+      const existingUrls = prev.filter((url) => !url.startsWith("blob:"));
+      return [...existingUrls, ...urls];
+    });
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [images]);
 
@@ -233,6 +236,31 @@ export default function WritePage() {
     }
   };
 
+  const handlePickImages = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setImages((prev) => {
+      const next = [...prev, ...files];
+      return next.slice(0, 6);
+    });
+
+    e.target.value = "";
+  };
+
+  const removeImageAt = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePickThumbnail = (e) => {
+    setThumbnailFile(e.target.files?.[0] ?? null);
+    e.target.value = "";
+  };
+
+  const clearThumbnail = () => {
+    setThumbnailFile(null);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
@@ -302,9 +330,40 @@ export default function WritePage() {
 
             {/* 썸네일 이미지 */}
             <div className="mb-8">
-              <div className="relative h-64 rounded-lg bg-secondary/50 border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/70 transition-colors group">
-                <ImageIcon className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors" />
-                <div className="text-center">
+              <input
+                ref={thumbnailInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handlePickThumbnail}
+              />
+              <div
+                className="relative h-64 rounded-lg bg-secondary/50 border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/70 transition-colors group overflow-hidden"
+                onClick={() => thumbnailInputRef.current?.click()}
+              >
+                {thumbnailPreview && (
+                  <img
+                    src={thumbnailPreview}
+                    alt="thumbnail"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )}
+                {thumbnailPreview && (
+                  <button
+                    type="button"
+                    className="absolute top-3 right-3 p-2 rounded-full bg-background/80 hover:bg-background border border-border z-20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearThumbnail();
+                    }}
+                    aria-label="remove thumbnail"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+
+                <ImageIcon className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors relative z-10" />
+                <div className="text-center relative z-10">
                   <p className="font-medium text-foreground mb-1">
                     썸네일 이미지를 선택하세요
                   </p>
@@ -312,6 +371,87 @@ export default function WritePage() {
                     클릭하거나 드래그해서 업로드
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* 태그 */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                태그
+              </label>
+              <input
+                type="text"
+                placeholder="#여행 #서울 #카페 (쉼표 또는 스페이스로 구분)"
+                className="w-full px-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                태그로 여행기를 더 쉽게 찾을 수 있습니다
+              </p>
+            </div>
+
+            {/* 본문 */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                여행기 내용
+              </label>
+              <textarea
+                placeholder="당신의 여행 이야기를 자유롭게 작성해주세요..."
+                className="w-full px-4 py-4 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                rows={12}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                마크다운 형식을 지원합니다
+              </p>
+            </div>
+
+            {/* 이미지 갤러리 */}
+            <div className="mb-8 pb-8 border-b border-border">
+              <label className="block text-sm font-medium text-foreground mb-4">
+                여행 사진
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={handlePickImages}
+              />
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+                {imagePreviews.map((src, idx) => (
+                  <div
+                    key={`${src}-${idx}`}
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-secondary"
+                  >
+                    <img
+                      src={src}
+                      alt={`upload-${idx}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background border border-border"
+                      onClick={() => removeImageAt(idx)}
+                      aria-label="remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+
+                {images.length < 6 && (
+                  <button
+                    type="button"
+                    className="relative aspect-square rounded-lg bg-secondary/50 border-2 border-dashed border-border flex items-center justify-center group cursor-pointer hover:bg-secondary transition-colors"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    <ImageIcon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </button>
+                )}
               </div>
             </div>
 

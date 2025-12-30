@@ -391,7 +391,7 @@ export default function Home() {
             >
               <img
                 src="/logo.png"
-                alt="여기저기"
+                alt="요기조기"
                 className="w-10 h-10 rounded-lg flex-shrink-0"
               />
               <span
@@ -402,7 +402,7 @@ export default function Home() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                여기저기
+                요기조기
               </span>
             </Link>
 
@@ -767,7 +767,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <h4 className="font-bold text-foreground mb-4">여기저기</h4>
+              <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
                   <a href="#" className="hover:text-primary transition-colors">
@@ -828,7 +828,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-border/50 pt-8 text-center text-sm text-muted-foreground">
-            <p>© 2025 여기저기. 모든 권리 보유.</p>
+            <p>© 2025 요기조기. 모든 권리 보유.</p>
           </div>
         </div>
       </footer>

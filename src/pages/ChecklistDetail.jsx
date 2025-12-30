@@ -96,7 +96,7 @@ export default function ChecklistDetailPage() {
             >
               <img
                 src="/logo.png"
-                alt="여기저기"
+                alt="요기조기"
                 className="w-10 h-10 rounded-lg flex-shrink-0"
               />
               <span
@@ -107,7 +107,7 @@ export default function ChecklistDetailPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                여기저기
+                요기조기
               </span>
             </Link>
 

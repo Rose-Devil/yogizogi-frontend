@@ -68,7 +68,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 cursor-pointer hover:opacity-70 transition-opacity">
                 <img
                   src="/logo.png"
-                  alt="여기저기"
+                  alt="요기조기"
                   className="w-10 h-10 rounded-lg flex-shrink-0"
                 />
                 <span
@@ -78,7 +78,7 @@ export default function ProfilePage() {
                     transform: "translate(-7px, 1.5px)",
                   }}
                 >
-                  여기저기
+                  요기조기
                 </span>
               </div>
             </Link>

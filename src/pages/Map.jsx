@@ -164,7 +164,9 @@ export default function MapPage() {
           url: place.place_url,
           category: place.category_name,
         }))
-        .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lng));
+        .filter(
+          (place) => Number.isFinite(place.lat) && Number.isFinite(place.lng)
+        );
 
       if (!formattedPlaces.length) {
         setStatusMessage("검색 결과가 없습니다.");
@@ -226,7 +228,7 @@ export default function MapPage() {
               <div className="flex items-center gap-3 cursor-pointer">
                 <img
                   src="/logo.png"
-                  alt="여기저기"
+                  alt="요기조기"
                   className="w-10 h-10 rounded-lg flex-shrink-0"
                 />
                 <span
@@ -237,7 +239,7 @@ export default function MapPage() {
                     transform: "translate(-7px, 1.5px)",
                   }}
                 >
-                  여기저기
+                  요기조기
                 </span>
               </div>
             </Link>

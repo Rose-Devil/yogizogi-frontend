@@ -25,7 +25,11 @@ export default function ProfileEditPage() {
 
   const [showVerification, setShowVerification] = useState(false);
   const [otpCode, setOtpCode] = useState("");
-  const [otpStatus, setOtpStatus] = useState({ sending: false, verifying: false, message: "" });
+  const [otpStatus, setOtpStatus] = useState({
+    sending: false,
+    verifying: false,
+    message: "",
+  });
   const [passwordChanged, setPasswordChanged] = useState(false);
 
   useEffect(() => {
@@ -81,14 +85,17 @@ export default function ProfileEditPage() {
 
       navigate("/profile");
     } catch (err) {
-      setProfileImageError(err instanceof Error ? err.message : "업로드에 실패했습니다.");
+      setProfileImageError(
+        err instanceof Error ? err.message : "업로드에 실패했습니다."
+      );
     } finally {
       setProfileImageUploading(false);
     }
   };
 
   const isNicknameValid = nickname.trim().length > 0;
-  const isPasswordValid = password === "" || (password.length > 0 && password === passwordConfirm);
+  const isPasswordValid =
+    password === "" || (password.length > 0 && password === passwordConfirm);
   const isFormValid = isNicknameValid && isPasswordValid;
   const canSave = isFormValid && (!wantsPasswordChange || passwordChanged);
 
@@ -116,12 +123,20 @@ export default function ProfileEditPage() {
 
     setOtpStatus({ sending: true, verifying: false, message: "" });
     try {
-      await apiJson("/api/auth/password/change/request-code", { method: "POST" });
+      await apiJson("/api/auth/password/change/request-code", {
+        method: "POST",
+      });
       setShowVerification(true);
-      setOtpStatus({ sending: false, verifying: false, message: "인증 코드를 전송했습니다." });
+      setOtpStatus({
+        sending: false,
+        verifying: false,
+        message: "인증 코드를 전송했습니다.",
+      });
     } catch (err) {
       setOtpStatus({ sending: false, verifying: false, message: "" });
-      alert(err instanceof Error ? err.message : "인증 코드 전송에 실패했습니다.");
+      alert(
+        err instanceof Error ? err.message : "인증 코드 전송에 실패했습니다."
+      );
     }
   };
 
@@ -173,7 +188,11 @@ export default function ProfileEditPage() {
               to="/"
               className="flex items-center justify-center gap-3 hover:opacity-80 transition-opacity"
             >
-              <img src="/logo.png" alt="여기저기 로고" className="w-12 h-12 rounded-lg" />
+              <img
+                src="/logo.png"
+                alt="요기조기 로고"
+                className="w-12 h-12 rounded-lg"
+              />
               <h1
                 className="text-2xl"
                 style={{
@@ -182,7 +201,7 @@ export default function ProfileEditPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                여기저기
+                요기조기
               </h1>
             </Link>
             <div className="space-y-1">
@@ -192,7 +211,9 @@ export default function ProfileEditPage() {
 
           <form className="space-y-6">
             <div className="space-y-3">
-              <label className="text-sm font-medium text-foreground">프로필 사진</label>
+              <label className="text-sm font-medium text-foreground">
+                프로필 사진
+              </label>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-muted border border-border">
                   <img
@@ -207,24 +228,38 @@ export default function ProfileEditPage() {
                   type="file"
                   accept="image/*"
                   hidden
-                  onChange={(e) => setProfileImageFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    setProfileImageFile(e.target.files?.[0] ?? null)
+                  }
                 />
 
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => profileImageInputRef.current?.click()}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => profileImageInputRef.current?.click()}
+                  >
                     선택
                   </Button>
-                  <Button type="button" onClick={uploadProfileImage} disabled={profileImageUploading}>
+                  <Button
+                    type="button"
+                    onClick={uploadProfileImage}
+                    disabled={profileImageUploading}
+                  >
                     {profileImageUploading ? "업로드 중..." : "업로드"}
                   </Button>
                 </div>
               </div>
 
-              {profileImageError && <p className="text-sm text-destructive">{profileImageError}</p>}
+              {profileImageError && (
+                <p className="text-sm text-destructive">{profileImageError}</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">닉네임*</label>
+              <label className="text-sm font-medium text-foreground">
+                닉네임*
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
@@ -242,7 +277,9 @@ export default function ProfileEditPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">새 비밀번호</label>
+                <label className="text-sm font-medium text-foreground">
+                  새 비밀번호
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
@@ -258,7 +295,9 @@ export default function ProfileEditPage() {
               <div className="hidden md:block" aria-hidden="true" />
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">비밀번호 확인</label>
+                <label className="text-sm font-medium text-foreground">
+                  비밀번호 확인
+                </label>
                 <div className="relative">
                   <CheckCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
@@ -270,15 +309,21 @@ export default function ProfileEditPage() {
                   />
                 </div>
                 {passwordConfirm !== "" && password !== passwordConfirm && (
-                  <p className="text-xs text-red-500">비밀번호가 일치하지 않습니다</p>
+                  <p className="text-xs text-red-500">
+                    비밀번호가 일치하지 않습니다
+                  </p>
                 )}
                 {passwordConfirm !== "" && password === passwordConfirm && (
-                  <p className="text-xs text-green-500">비밀번호가 일치합니다</p>
+                  <p className="text-xs text-green-500">
+                    비밀번호가 일치합니다
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">이메일 인증</label>
+                <label className="text-sm font-medium text-foreground">
+                  이메일 인증
+                </label>
                 <Button
                   type="button"
                   variant="outline"
@@ -307,7 +352,11 @@ export default function ProfileEditPage() {
                       variant="secondary"
                       className="w-full"
                       onClick={confirmPasswordOtp}
-                      disabled={otpStatus.verifying || otpCode.trim().length !== 6 || !isPasswordValid}
+                      disabled={
+                        otpStatus.verifying ||
+                        otpCode.trim().length !== 6 ||
+                        !isPasswordValid
+                      }
                     >
                       {otpStatus.verifying ? "확인 중..." : "확인"}
                     </Button>
@@ -315,7 +364,13 @@ export default function ProfileEditPage() {
                 )}
 
                 {otpStatus.message && (
-                  <p className={`text-sm ${passwordChanged ? "text-green-600" : "text-muted-foreground"}`}>
+                  <p
+                    className={`text-sm ${
+                      passwordChanged
+                        ? "text-green-600"
+                        : "text-muted-foreground"
+                    }`}
+                  >
                     {otpStatus.message}
                   </p>
                 )}
@@ -323,7 +378,9 @@ export default function ProfileEditPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">소개</label>
+              <label className="text-sm font-medium text-foreground">
+                소개
+              </label>
               <textarea
                 rows={3}
                 value={bio}
@@ -347,7 +404,10 @@ export default function ProfileEditPage() {
           </form>
 
           <div className="text-center text-sm text-muted-foreground">
-            <Link to="/profile" className="text-primary hover:underline font-medium">
+            <Link
+              to="/profile"
+              className="text-primary hover:underline font-medium"
+            >
               마이페이지로 돌아가기
             </Link>
           </div>

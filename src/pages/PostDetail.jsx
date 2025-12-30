@@ -834,7 +834,7 @@ export default function PostDetail() {
         <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <h4 className="font-bold text-foreground mb-4">여기저기</h4>
+              <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
                   <a href="#" className="hover:text-primary transition-colors">

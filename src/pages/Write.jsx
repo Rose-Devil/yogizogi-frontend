@@ -319,7 +319,7 @@ export default function WritePage() {
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link to="/">
               <div className="flex items-center gap-3 cursor-pointer hover:opacity-70 transition-opacity">
@@ -329,7 +329,7 @@ export default function WritePage() {
                   className="w-10 h-10 rounded-lg flex-shrink-0"
                 />
                 <span
-                  className="text-xl font-[900] text-foreground hidden sm:inline"
+                  className="text-xl font-[900] text-foreground"
                   style={{
                     fontFamily: notoSansKR,
                     transform: "translate(-7px, 1.5px)",
@@ -341,7 +341,7 @@ export default function WritePage() {
             </Link>
 
             {/* 우측 버튼 */}
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-4">
               <Link to={isEditMode ? `/post/${id}` : "/"}>
                 <Button variant="ghost">취소</Button>
               </Link>
@@ -375,7 +375,7 @@ export default function WritePage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="max-w-3xl mx-auto px-4 py-8">
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">
             게시글을 불러오는 중...
@@ -440,7 +440,7 @@ export default function WritePage() {
             </div>
 
             {/* 여행 정보 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 pb-8 border-b border-border">
+            <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-border">
               {/* 위치 */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -491,8 +491,7 @@ export default function WritePage() {
                       locale={ko}
                       className="rounded-lg"
                       classNames={{
-                        months:
-                          "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                        months: "flex flex-row space-x-4",
                         month: "space-y-4",
                         caption:
                           "flex justify-center pt-1 relative items-center",
@@ -539,7 +538,7 @@ export default function WritePage() {
                 hidden
                 onChange={handlePickImages}
               />
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 {imagePreviews.map((src, idx) => (
                   <div
                     key={`${src}-${idx}`}

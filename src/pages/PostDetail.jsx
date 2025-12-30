@@ -139,6 +139,7 @@ export default function PostDetail() {
   const [post, setPost] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [comments, setComments] = useState([]); // 댓글 목록 상태 분리
+  const [currentUserProfileImage, setCurrentUserProfileImage] = useState(null); // 현재 사용자 프로필 이미지
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
@@ -171,6 +172,15 @@ export default function PostDetail() {
         if (userId) {
           setCurrentUserId(userId);
           console.log("현재 사용자 ID:", userId);
+        }
+        const userImage =
+          userData?.user?.url ||
+          userData?.user?.image ||
+          userData?.data?.user?.url ||
+          userData?.data?.user?.image ||
+          userData?.user?.profile_image; // fallback
+        if (userImage) {
+          setCurrentUserProfileImage(userImage);
         }
       } catch (error) {
         console.error("사용자 정보 가져오기 실패:", error);
@@ -479,7 +489,7 @@ export default function PostDetail() {
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link
               to="/"
@@ -517,7 +527,7 @@ export default function PostDetail() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto px-4 py-8">
         {/* 게시글 헤더 */}
         <article>
           {/* 메인 이미지 */}
@@ -535,7 +545,7 @@ export default function PostDetail() {
               {post.title}
             </h1>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-6 border-b border-border">
+            <div className="flex flex-row items-center gap-4 mb-6 pb-6 border-b border-border">
               {/* 작가 정보 */}
               <div className="flex items-center gap-3">
                 <img
@@ -621,7 +631,7 @@ export default function PostDetail() {
               <h2 className="text-2xl font-bold text-foreground mb-4">
                 여행 사진 ({postImages.length})
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 {postImages.map((imageUrl, index) => (
                   <div
                     key={index}
@@ -725,7 +735,7 @@ export default function PostDetail() {
             <Card className="p-4 mb-6 border-border/50">
               <div className="flex gap-3">
                 <img
-                  src="/user-profile-avatar.png"
+                  src={currentUserProfileImage || "/user-profile-avatar.png"}
                   alt="프로필"
                   className="w-10 h-10 rounded-full bg-secondary"
                 />
@@ -797,7 +807,7 @@ export default function PostDetail() {
             <h2 className="text-2xl font-bold text-foreground mb-6">
               다른 여행기
             </h2>
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-2">
               {recommendations.map((recPost) => (
                 <Link key={recPost.id} to={`/post/${recPost.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50 h-full">
@@ -831,20 +841,26 @@ export default function PostDetail() {
 
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
-        <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-4 gap-8 mb-8">
             <div>
               <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/about"
+                    className="hover:text-primary transition-colors"
+                  >
                     소개
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/notice"
+                    className="hover:text-primary transition-colors"
+                  >
                     공지사항
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -852,14 +868,20 @@ export default function PostDetail() {
               <h4 className="font-bold text-foreground mb-4">기능</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/write"
+                    className="hover:text-primary transition-colors"
+                  >
                     여행기 작성
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/checklist"
+                    className="hover:text-primary transition-colors"
+                  >
                     여행 계획
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -867,14 +889,20 @@ export default function PostDetail() {
               <h4 className="font-bold text-foreground mb-4">정보</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/terms"
+                    className="hover:text-primary transition-colors"
+                  >
                     이용약관
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/privacy"
+                    className="hover:text-primary transition-colors"
+                  >
                     개인정보
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -882,12 +910,22 @@ export default function PostDetail() {
               <h4 className="font-bold text-foreground mb-4">팔로우</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <a
+                    href="https://www.instagram.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
                     Instagram
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <a
+                    href="https://twitter.com/yogizogi_official"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
                     Twitter
                   </a>
                 </li>

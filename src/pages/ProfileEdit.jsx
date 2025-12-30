@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle, Lock, ShieldCheck, User } from "lucide-react";
+import { Mail, User, Lock, CheckCircle, ShieldCheck } from "lucide-react";
 import { apiJson } from "@/api/client";
 
 const notoSansKR = "Noto Sans KR";
 
 export default function ProfileEditPage() {
   const navigate = useNavigate();
-
+  const [showVerification, setShowVerification] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [profileImageError, setProfileImageError] = useState("");
@@ -33,38 +33,19 @@ export default function ProfileEditPage() {
   const [passwordChanged, setPasswordChanged] = useState(false);
 
   useEffect(() => {
+    // 파일이 없으면 미리보기 초기화
     if (!profileImageFile) {
       setProfileImagePreview("");
       return;
     }
 
-    const url = URL.createObjectURL(profileImageFile);
-    setProfileImagePreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [profileImageFile]);
-
-  useEffect(() => {
-    setPasswordChanged(false);
-    setOtpCode("");
-    setOtpStatus({ sending: false, verifying: false, message: "" });
-    setShowVerification(false);
-  }, [password, passwordConfirm]);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const data = await apiJson("/api/user/me");
-        const user = data?.user;
-        if (!user) return;
-        setNickname(user.nickname || "");
-        setBio(user.bio || "");
-      } catch (err) {
-        console.error(err);
-      }
+    // FileReader로 이미지 미리보기 생성
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImagePreview(reader.result);
     };
-
-    fetchProfile();
-  }, []);
+    reader.readAsDataURL(profileImageFile);
+  }, [profileImageFile]);
 
   const uploadProfileImage = async () => {
     if (!profileImageFile) {
@@ -88,23 +69,71 @@ export default function ProfileEditPage() {
       setProfileImageError(
         err instanceof Error ? err.message : "업로드에 실패했습니다."
       );
+      setProfileImageError(
+        err instanceof Error ? err.message : "업로드에 실패했습니다."
+      );
     } finally {
       setProfileImageUploading(false);
     }
   };
 
+  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
+  const [bio, setBio] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [originalProfile, setOriginalProfile] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        // /api/auth/me로 통일 (마이페이지와 동일한 엔드포인트 사용)
+        const response = await apiJson("/api/auth/me");
+        console.log("API response:", response);
+
+        if (!response || !response.user) {
+          console.error("Invalid response:", response);
+          return;
+        }
+
+        const userData = response.user;
+        setNickname(userData.nickname || "");
+        setEmail(userData.email || "");
+        setBio(userData.bio || "");
+
+        // 현재 프로필 이미지 저장
+        setUserProfile({
+          profileImage:
+            userData.image || userData.url || "/user-profile-avatar.png",
+        });
+
+        setOriginalProfile(userData);
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+        alert("프로필 정보를 불러오는데 실패했습니다.");
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  // 유효성 검사
   const isNicknameValid = nickname.trim().length > 0;
   const isPasswordValid =
     password === "" || (password.length > 0 && password === passwordConfirm);
+  const isPasswordValid =
+    password === "" || (password.length > 0 && password === passwordConfirm);
   const isFormValid = isNicknameValid && isPasswordValid;
-  const canSave = isFormValid && (!wantsPasswordChange || passwordChanged);
 
+  // 비밀번호 확인란 배경색
   const getPasswordConfirmBgColor = () => {
     if (passwordConfirm === "") return "bg-input";
     if (password === passwordConfirm) return "bg-green-50 dark:bg-green-950/20";
     return "bg-red-50 dark:bg-red-950/20";
   };
 
+  // 닉네임 배경색
   const getNicknameBgColor = () => {
     if (nickname.trim().length === 0) return "bg-red-50 dark:bg-red-950/20";
     return "bg-green-50 dark:bg-green-950/20";
@@ -161,16 +190,26 @@ export default function ProfileEditPage() {
 
   const handleSaveProfile = async () => {
     if (!isFormValid) return;
-    if (wantsPasswordChange && !passwordChanged) {
-      alert("이메일 인증 후 비밀번호 변경을 완료해 주세요.");
-      return;
-    }
 
     try {
+      console.log("편집완료 클릭됨");
+
+      const body = {
+        nickname,
+        email,
+        bio,
+      };
+
+      // 비밀번호가 입력된 경우에만 포함
+      if (password) {
+        body.password = password;
+      }
+
       await apiJson("/api/user/me/profile", {
         method: "PATCH",
-        body: JSON.stringify({ nickname, bio }),
+        body: JSON.stringify(body),
       });
+
       alert("프로필이 수정되었습니다");
       navigate("/profile");
     } catch (err) {
@@ -206,6 +245,9 @@ export default function ProfileEditPage() {
             </Link>
             <div className="space-y-1">
               <p className="text-lg font-semibold">프로필 편집</p>
+              <p className="text-sm text-muted-foreground">
+                아이디는 수정할 수 없으며, 이메일 인증 후 정보를 변경하세요.
+              </p>
             </div>
           </header>
 
@@ -214,10 +256,18 @@ export default function ProfileEditPage() {
               <label className="text-sm font-medium text-foreground">
                 프로필 사진
               </label>
+              <label className="text-sm font-medium text-foreground">
+                프로필 사진
+              </label>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-muted border border-border">
                   <img
-                    src={profileImagePreview || "/user-profile-avatar.png"}
+                    src={
+                      profileImageFile
+                        ? profileImagePreview
+                        : userProfile?.profileImage ||
+                          "/user-profile-avatar.png"
+                    }
                     alt="profile"
                     className="w-full h-full object-cover"
                   />
@@ -234,6 +284,11 @@ export default function ProfileEditPage() {
                 />
 
                 <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => profileImageInputRef.current?.click()}
+                  >
                   <Button
                     type="button"
                     variant="outline"
@@ -287,14 +342,19 @@ export default function ProfileEditPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="새 비밀번호"
+                    autoComplete="new-password"
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  비밀번호를 변경하지 않으려면 비워두세요
+                </p>
               </div>
 
-              <div className="hidden md:block" aria-hidden="true" />
-
               <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  비밀번호 확인
+                </label>
                 <label className="text-sm font-medium text-foreground">
                   비밀번호 확인
                 </label>
@@ -305,10 +365,14 @@ export default function ProfileEditPage() {
                     value={passwordConfirm}
                     onChange={(e) => setPasswordConfirm(e.target.value)}
                     placeholder="비밀번호 확인"
+                    autoComplete="new-password"
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getPasswordConfirmBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                   />
                 </div>
                 {passwordConfirm !== "" && password !== passwordConfirm && (
+                  <p className="text-xs text-red-500">
+                    비밀번호가 일치하지 않습니다
+                  </p>
                   <p className="text-xs text-red-500">
                     비밀번호가 일치하지 않습니다
                   </p>
@@ -381,6 +445,9 @@ export default function ProfileEditPage() {
               <label className="text-sm font-medium text-foreground">
                 소개
               </label>
+              <label className="text-sm font-medium text-foreground">
+                소개
+              </label>
               <textarea
                 rows={3}
                 value={bio}
@@ -394,7 +461,7 @@ export default function ProfileEditPage() {
               <Button
                 type="button"
                 onClick={handleSaveProfile}
-                disabled={!canSave}
+                disabled={!isFormValid}
                 className="w-full sm:w-auto bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontFamily: notoSansKR, fontWeight: 900 }}
               >
@@ -404,6 +471,10 @@ export default function ProfileEditPage() {
           </form>
 
           <div className="text-center text-sm text-muted-foreground">
+            <Link
+              to="/profile"
+              className="text-primary hover:underline font-medium"
+            >
             <Link
               to="/profile"
               className="text-primary hover:underline font-medium"

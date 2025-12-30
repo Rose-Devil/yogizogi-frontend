@@ -190,7 +190,6 @@ export default function WritePage() {
 
     try {
       const form = new FormData();
-      form.append("author_id", "1"); // TODO: 인증 붙이면 실제 userId 사용
       form.append("title", title);
       form.append("content", content);
       form.append("region", location);

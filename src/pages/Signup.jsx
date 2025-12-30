@@ -1,14 +1,23 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Mail, Lock, User, Link as LinkIcon } from "lucide-react";
+import { Mail, Lock, User, Link as LinkIcon, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { signup } from "@/api/auth";
+import { signup, signupRequestCode, signupVerifyCode } from "@/api/auth";
 
 const notoSansKR = "Noto Sans KR";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
+  const [signupTicket, setSignupTicket] = useState("");
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpStatus, setOtpStatus] = useState({
+    sending: false,
+    verifying: false,
+    message: "",
+  });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [nickname, setNickname] = useState("");
@@ -16,6 +25,52 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  const isEmailVerified = Boolean(signupTicket) && verifiedEmail === email;
+
+  const onChangeEmail = (nextEmail) => {
+    setEmail(nextEmail);
+    if (verifiedEmail !== nextEmail) {
+      setSignupTicket("");
+      setOtpCode("");
+      setOtpStatus({ sending: false, verifying: false, message: "" });
+    }
+  };
+
+  const sendOtp = async () => {
+    setError("");
+    setOtpStatus({ sending: true, verifying: false, message: "" });
+    try {
+      await signupRequestCode({ email });
+      setShowVerification(true);
+      setOtpStatus({
+        sending: false,
+        verifying: false,
+        message: "인증 코드를 전송했습니다.",
+      });
+    } catch (err) {
+      setOtpStatus({ sending: false, verifying: false, message: "" });
+      setError(err instanceof Error ? err.message : "인증 코드 전송에 실패했습니다.");
+    }
+  };
+
+  const verifyOtp = async () => {
+    setError("");
+    setOtpStatus({ sending: false, verifying: true, message: "" });
+    try {
+      const data = await signupVerifyCode({ email, code: otpCode });
+      const ticket = data?.ticket;
+      if (!ticket) throw new Error("인증 티켓이 없습니다.");
+      setSignupTicket(ticket);
+      setVerifiedEmail(email);
+      setOtpStatus({ sending: false, verifying: false, message: "인증 완료" });
+    } catch (err) {
+      setSignupTicket("");
+      setVerifiedEmail("");
+      setOtpStatus({ sending: false, verifying: false, message: "" });
+      setError(err instanceof Error ? err.message : "인증 확인에 실패했습니다.");
+    }
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -26,9 +81,14 @@ export default function Signup() {
       return;
     }
 
+    if (!isEmailVerified) {
+      setError("이메일 인증이 필요합니다.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await signup({ email, password, nickname, url });
+      await signup({ email, password, nickname, url, signupTicket });
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.");
@@ -61,16 +121,59 @@ export default function Signup() {
           <form className="space-y-5" onSubmit={onSubmit}>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">이메일</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                />
+              <div className="space-y-2">
+                <div className="flex gap-2 flex-col sm:flex-row">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <input
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => onChangeEmail(e.target.value)}
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="whitespace-nowrap"
+                    onClick={sendOtp}
+                    disabled={!email || otpStatus.sending}
+                  >
+                    {otpStatus.sending ? "전송 중..." : "인증"}
+                  </Button>
+                </div>
+
+                {showVerification && (
+                  <div className="flex gap-2 flex-col sm:flex-row items-start sm:items-center">
+                    <div className="relative flex-1">
+                      <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        placeholder="인증번호 6자리 입력"
+                        className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="whitespace-nowrap"
+                      onClick={verifyOtp}
+                      disabled={otpStatus.verifying || otpCode.trim().length !== 6}
+                    >
+                      {otpStatus.verifying ? "확인 중..." : "확인"}
+                    </Button>
+                  </div>
+                )}
+
+                {otpStatus.message && (
+                  <p className={`text-sm ${isEmailVerified ? "text-green-600" : "text-muted-foreground"}`}>
+                    {otpStatus.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -139,7 +242,7 @@ export default function Signup() {
               type="submit"
               className="w-full bg-primary hover:bg-primary/90 py-3 text-base font-medium"
               style={{ fontFamily: notoSansKR, fontWeight: 900 }}
-              disabled={isLoading}
+              disabled={isLoading || !isEmailVerified}
             >
               회원가입
             </Button>

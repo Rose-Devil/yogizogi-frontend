@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Mail, User, Lock, CheckCircle, ShieldCheck } from "lucide-react";
+import { User, Lock, CheckCircle, ShieldCheck } from "lucide-react";
 import { apiJson } from "@/api/client";
 
 const notoSansKR = "Noto Sans KR";
 
 export default function ProfileEditPage() {
   const navigate = useNavigate();
-  const [showVerification, setShowVerification] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [profileImageError, setProfileImageError] = useState("");
@@ -17,10 +16,13 @@ export default function ProfileEditPage() {
   const profileImageInputRef = useRef(null);
 
   const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
-
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [originalProfile, setOriginalProfile] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+
   const wantsPasswordChange = password.trim().length > 0;
 
   const [showVerification, setShowVerification] = useState(false);
@@ -33,13 +35,11 @@ export default function ProfileEditPage() {
   const [passwordChanged, setPasswordChanged] = useState(false);
 
   useEffect(() => {
-    // 파일이 없으면 미리보기 초기화
     if (!profileImageFile) {
       setProfileImagePreview("");
       return;
     }
 
-    // FileReader로 이미지 미리보기 생성
     const reader = new FileReader();
     reader.onloadend = () => {
       setProfileImagePreview(reader.result);
@@ -49,7 +49,7 @@ export default function ProfileEditPage() {
 
   const uploadProfileImage = async () => {
     if (!profileImageFile) {
-      setProfileImageError("프로필 이미지 파일을 선택해 주세요.");
+      setProfileImageError("������ �̹����� �������ּ���.");
       return;
     }
 
@@ -67,30 +67,17 @@ export default function ProfileEditPage() {
       navigate("/profile");
     } catch (err) {
       setProfileImageError(
-        err instanceof Error ? err.message : "업로드에 실패했습니다."
-      );
-      setProfileImageError(
-        err instanceof Error ? err.message : "업로드에 실패했습니다."
+        err instanceof Error ? err.message : "���ε忡 �����߽��ϴ�."
       );
     } finally {
       setProfileImageUploading(false);
     }
   };
 
-  const [nickname, setNickname] = useState("");
-  const [email, setEmail] = useState("");
-  const [bio, setBio] = useState("");
-  const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [originalProfile, setOriginalProfile] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // /api/auth/me로 통일 (마이페이지와 동일한 엔드포인트 사용)
         const response = await apiJson("/api/auth/me");
-        console.log("API response:", response);
 
         if (!response || !response.user) {
           console.error("Invalid response:", response);
@@ -102,7 +89,6 @@ export default function ProfileEditPage() {
         setEmail(userData.email || "");
         setBio(userData.bio || "");
 
-        // 현재 프로필 이미지 저장
         setUserProfile({
           profileImage:
             userData.image || userData.url || "/user-profile-avatar.png",
@@ -111,29 +97,24 @@ export default function ProfileEditPage() {
         setOriginalProfile(userData);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
-        alert("프로필 정보를 불러오는데 실패했습니다.");
+        alert("������ ������ �ҷ����� ���߽��ϴ�.");
       }
     };
 
     fetchProfile();
   }, []);
 
-  // 유효성 검사
   const isNicknameValid = nickname.trim().length > 0;
-  const isPasswordValid =
-    password === "" || (password.length > 0 && password === passwordConfirm);
   const isPasswordValid =
     password === "" || (password.length > 0 && password === passwordConfirm);
   const isFormValid = isNicknameValid && isPasswordValid;
 
-  // 비밀번호 확인란 배경색
   const getPasswordConfirmBgColor = () => {
     if (passwordConfirm === "") return "bg-input";
     if (password === passwordConfirm) return "bg-green-50 dark:bg-green-950/20";
     return "bg-red-50 dark:bg-red-950/20";
   };
 
-  // 닉네임 배경색
   const getNicknameBgColor = () => {
     if (nickname.trim().length === 0) return "bg-red-50 dark:bg-red-950/20";
     return "bg-green-50 dark:bg-green-950/20";
@@ -142,11 +123,11 @@ export default function ProfileEditPage() {
   const requestPasswordOtp = async () => {
     if (!wantsPasswordChange) return;
     if (!isPasswordValid) {
-      alert("새 비밀번호 확인을 먼저 완료해 주세요.");
+      alert("��й�ȣ Ȯ���� ���� �Ϸ����ּ���.");
       return;
     }
     if (password.length < 8) {
-      alert("새 비밀번호는 8자 이상을 권장합니다.");
+      alert("��й�ȣ�� 8�� �̻��̾�� �մϴ�.");
       return;
     }
 
@@ -159,12 +140,14 @@ export default function ProfileEditPage() {
       setOtpStatus({
         sending: false,
         verifying: false,
-        message: "인증 코드를 전송했습니다.",
+        message: "���� �ڵ尡 �߼۵Ǿ����ϴ�.",
       });
     } catch (err) {
       setOtpStatus({ sending: false, verifying: false, message: "" });
       alert(
-        err instanceof Error ? err.message : "인증 코드 전송에 실패했습니다."
+        err instanceof Error
+          ? err.message
+          : "���� �ڵ带 ������ �� �����߽��ϴ�."
       );
     }
   };
@@ -180,11 +163,13 @@ export default function ProfileEditPage() {
         body: JSON.stringify({ newPassword: password, code: otpCode }),
       });
       setPasswordChanged(true);
-      setOtpStatus({ sending: false, verifying: false, message: "인증 완료" });
+      setOtpStatus({ sending: false, verifying: false, message: "���� �Ϸ�" });
     } catch (err) {
       setPasswordChanged(false);
       setOtpStatus({ sending: false, verifying: false, message: "" });
-      alert(err instanceof Error ? err.message : "인증 확인에 실패했습니다.");
+      alert(
+        err instanceof Error ? err.message : "������ �Ϸ����� ���߽��ϴ�."
+      );
     }
   };
 
@@ -192,7 +177,7 @@ export default function ProfileEditPage() {
     if (!isFormValid) return;
 
     try {
-      console.log("편집완료 클릭됨");
+      console.log("Saving profile...");
 
       const body = {
         nickname,
@@ -200,7 +185,6 @@ export default function ProfileEditPage() {
         bio,
       };
 
-      // 비밀번호가 입력된 경우에만 포함
       if (password) {
         body.password = password;
       }
@@ -210,11 +194,11 @@ export default function ProfileEditPage() {
         body: JSON.stringify(body),
       });
 
-      alert("프로필이 수정되었습니다");
+      alert("�������� ����Ǿ����ϴ�.");
       navigate("/profile");
     } catch (err) {
       console.error(err);
-      alert("프로필 수정 실패");
+      alert("������ ���忡 �����߽��ϴ�.");
     }
   };
 
@@ -229,7 +213,7 @@ export default function ProfileEditPage() {
             >
               <img
                 src="/logo.png"
-                alt="요기조기 로고"
+                alt="������� �ΰ�"
                 className="w-12 h-12 rounded-lg"
               />
               <h1
@@ -240,13 +224,13 @@ export default function ProfileEditPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                요기조기
+                �������
               </h1>
             </Link>
             <div className="space-y-1">
-              <p className="text-lg font-semibold">프로필 편집</p>
+              <p className="text-lg font-semibold">������ ����</p>
               <p className="text-sm text-muted-foreground">
-                아이디는 수정할 수 없으며, 이메일 인증 후 정보를 변경하세요.
+                �г��Ӱ� �Ұ�, ��й�ȣ�� ������Ʈ�� �� �־��.
               </p>
             </div>
           </header>
@@ -254,10 +238,7 @@ export default function ProfileEditPage() {
           <form className="space-y-6">
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground">
-                프로필 사진
-              </label>
-              <label className="text-sm font-medium text-foreground">
-                프로필 사진
+                ������ ����
               </label>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-muted border border-border">
@@ -289,19 +270,14 @@ export default function ProfileEditPage() {
                     variant="outline"
                     onClick={() => profileImageInputRef.current?.click()}
                   >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => profileImageInputRef.current?.click()}
-                  >
-                    선택
+                    ����
                   </Button>
                   <Button
                     type="button"
                     onClick={uploadProfileImage}
                     disabled={profileImageUploading}
                   >
-                    {profileImageUploading ? "업로드 중..." : "업로드"}
+                    {profileImageUploading ? "���ε� ��..." : "���ε�"}
                   </Button>
                 </div>
               </div>
@@ -313,7 +289,7 @@ export default function ProfileEditPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                닉네임*
+                �г���
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -321,19 +297,19 @@ export default function ProfileEditPage() {
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="닉네임을 입력하세요"
+                  placeholder="�г����� �Է����ּ���"
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getNicknameBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                 />
               </div>
               {nickname.trim().length === 0 && (
-                <p className="text-xs text-red-500">닉네임은 필수입니다.</p>
+                <p className="text-xs text-red-500">�г����� �Է����ּ���.</p>
               )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  새 비밀번호
+                  �� ��й�ȣ
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -341,22 +317,19 @@ export default function ProfileEditPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="새 비밀번호"
+                    placeholder="�� ��й�ȣ"
                     autoComplete="new-password"
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  비밀번호를 변경하지 않으려면 비워두세요
+                  ��й�ȣ�� �������� �������� ����μ���.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  비밀번호 확인
-                </label>
-                <label className="text-sm font-medium text-foreground">
-                  비밀번호 확인
+                  ��й�ȣ Ȯ��
                 </label>
                 <div className="relative">
                   <CheckCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -364,29 +337,26 @@ export default function ProfileEditPage() {
                     type="password"
                     value={passwordConfirm}
                     onChange={(e) => setPasswordConfirm(e.target.value)}
-                    placeholder="비밀번호 확인"
+                    placeholder="��й�ȣ Ȯ��"
                     autoComplete="new-password"
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getPasswordConfirmBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                   />
                 </div>
                 {passwordConfirm !== "" && password !== passwordConfirm && (
                   <p className="text-xs text-red-500">
-                    비밀번호가 일치하지 않습니다
-                  </p>
-                  <p className="text-xs text-red-500">
-                    비밀번호가 일치하지 않습니다
+                    ��й�ȣ�� ��ġ���� �ʽ��ϴ�.
                   </p>
                 )}
                 {passwordConfirm !== "" && password === passwordConfirm && (
                   <p className="text-xs text-green-500">
-                    비밀번호가 일치합니다
+                    ��й�ȣ�� ��ġ�մϴ�.
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  이메일 인증
+                  �̸��� ����
                 </label>
                 <Button
                   type="button"
@@ -395,7 +365,7 @@ export default function ProfileEditPage() {
                   onClick={requestPasswordOtp}
                   disabled={!wantsPasswordChange || otpStatus.sending}
                 >
-                  {otpStatus.sending ? "전송 중..." : "인증"}
+                  {otpStatus.sending ? "�߼� ��.." : "����"}
                 </Button>
 
                 {showVerification && (
@@ -406,7 +376,7 @@ export default function ProfileEditPage() {
                         type="text"
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value)}
-                        placeholder="인증번호 6자리 입력"
+                        placeholder="������ȣ 6�ڸ� �Է�"
                         className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                       />
                     </div>
@@ -422,7 +392,7 @@ export default function ProfileEditPage() {
                         !isPasswordValid
                       }
                     >
-                      {otpStatus.verifying ? "확인 중..." : "확인"}
+                      {otpStatus.verifying ? "Ȯ�� ��.." : "Ȯ��"}
                     </Button>
                   </>
                 )}
@@ -443,16 +413,13 @@ export default function ProfileEditPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                소개
-              </label>
-              <label className="text-sm font-medium text-foreground">
-                소개
+                �Ұ�
               </label>
               <textarea
                 rows={3}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="나의 여행 스타일이나 관심사를 적어주세요."
+                placeholder="���� ���� ����� ���õ� �Ұ��� �����ּ���."
                 className="w-full px-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
               />
             </div>
@@ -465,7 +432,7 @@ export default function ProfileEditPage() {
                 className="w-full sm:w-auto bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontFamily: notoSansKR, fontWeight: 900 }}
               >
-                편집 완료
+                �����ϱ�
               </Button>
             </div>
           </form>
@@ -475,11 +442,7 @@ export default function ProfileEditPage() {
               to="/profile"
               className="text-primary hover:underline font-medium"
             >
-            <Link
-              to="/profile"
-              className="text-primary hover:underline font-medium"
-            >
-              마이페이지로 돌아가기
+              ������������ ���ư���
             </Link>
           </div>
         </div>

@@ -383,7 +383,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link
               to="/"
@@ -395,7 +395,7 @@ export default function Home() {
                 className="w-10 h-10 rounded-lg flex-shrink-0"
               />
               <span
-                className="text-xl text-foreground hidden sm:inline"
+                className="text-xl text-foreground"
                 style={{
                   fontFamily: notoSansKR,
                   fontWeight: 900,
@@ -407,7 +407,7 @@ export default function Home() {
             </Link>
 
             {/* 검색바 */}
-            <div className="hidden md:flex flex-1 max-w-sm mx-8">
+            <div className="flex flex-1 max-w-sm mx-8">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
@@ -419,9 +419,9 @@ export default function Home() {
             </div>
 
             {/* 우측 버튼 */}
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-4">
               <Link to="/write">
-                <Button className="hidden sm:flex gap-2 bg-primary hover:bg-primary/90">
+                <Button className="flex gap-2 bg-primary hover:bg-primary/90">
                   <Plus className="w-5 h-5" />
                   여행기 작성
                 </Button>
@@ -546,22 +546,10 @@ export default function Home() {
               )}
             </div>
           </div>
-
-          {/* 모바일 검색바 */}
-          <div className="md:hidden mt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="검색..."
-                className="w-full pl-10 pr-4 py-2 rounded-full border border-border bg-secondary/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         {/* 필터 탭 */}
         <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
           {[
@@ -608,7 +596,7 @@ export default function Home() {
                 인기 게시글이 없습니다.
               </div>
             ) : (
-              <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
+              <div className="grid gap-6 grid-cols-4 mb-8">
                 {popularPosts.map((post) => (
                   <Link to={`/post/${post.id}`} key={post.id}>
                     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50">
@@ -679,7 +667,7 @@ export default function Home() {
         )}
 
         {/* 여행기 그리드 */}
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-6 grid-cols-4">
           {loadingPosts && posts.length === 0 ? (
             <div className="col-span-full text-center text-muted-foreground">
               게시글을 불러오는 중입니다...
@@ -765,19 +753,25 @@ export default function Home() {
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
         <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-4 gap-8 mb-8">
             <div>
               <h4 className="font-bold text-foreground mb-4">여기저기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/about"
+                    className="hover:text-primary transition-colors"
+                  >
                     소개
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/notice"
+                    className="hover:text-primary transition-colors"
+                  >
                     공지사항
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -785,14 +779,20 @@ export default function Home() {
               <h4 className="font-bold text-foreground mb-4">기능</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/write"
+                    className="hover:text-primary transition-colors"
+                  >
                     여행기 작성
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/checklist"
+                    className="hover:text-primary transition-colors"
+                  >
                     여행 계획
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -800,14 +800,20 @@ export default function Home() {
               <h4 className="font-bold text-foreground mb-4">정보</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/terms"
+                    className="hover:text-primary transition-colors"
+                  >
                     이용약관
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/privacy"
+                    className="hover:text-primary transition-colors"
+                  >
                     개인정보
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -815,12 +821,22 @@ export default function Home() {
               <h4 className="font-bold text-foreground mb-4">팔로우</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <a
+                    href="https://www.instagram.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
                     Instagram
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <a
+                    href="https://twitter.com/yogizogi_official"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
                     Twitter
                   </a>
                 </li>

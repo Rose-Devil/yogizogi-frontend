@@ -127,6 +127,18 @@
     @apply bg-background text-foreground;
     font-family: "Geist", sans-serif;
   }
+  
+  /* 모바일에서도 데스크톱 레이아웃 유지 - 사이즈만 비율적으로 줄어들도록 */
+  html {
+    min-width: 320px;
+  }
+  
+  /* 모바일에서도 그리드 레이아웃 유지 */
+  @media (max-width: 768px) {
+    .grid {
+      display: grid !important;
+    }
+  }
 }
 
 

@@ -139,6 +139,7 @@ export default function PostDetail() {
   const [post, setPost] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [comments, setComments] = useState([]); // 댓글 목록 상태 분리
+  const [currentUserProfileImage, setCurrentUserProfileImage] = useState(null); // 현재 사용자 프로필 이미지
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
@@ -171,6 +172,15 @@ export default function PostDetail() {
         if (userId) {
           setCurrentUserId(userId);
           console.log("현재 사용자 ID:", userId);
+        }
+        const userImage =
+          userData?.user?.url ||
+          userData?.user?.image ||
+          userData?.data?.user?.url ||
+          userData?.data?.user?.image ||
+          userData?.user?.profile_image; // fallback
+        if (userImage) {
+          setCurrentUserProfileImage(userImage);
         }
       } catch (error) {
         console.error("사용자 정보 가져오기 실패:", error);
@@ -725,7 +735,7 @@ export default function PostDetail() {
             <Card className="p-4 mb-6 border-border/50">
               <div className="flex gap-3">
                 <img
-                  src="/user-profile-avatar.png"
+                  src={currentUserProfileImage || "/user-profile-avatar.png"}
                   alt="프로필"
                   className="w-10 h-10 rounded-full bg-secondary"
                 />

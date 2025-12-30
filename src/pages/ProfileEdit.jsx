@@ -49,7 +49,7 @@ export default function ProfileEditPage() {
 
   const uploadProfileImage = async () => {
     if (!profileImageFile) {
-      setProfileImageError("ÇÁ·ÎÇÊ ÀÌ¹ÌÁö¸¦ ¼±ÅÃÇØÁÖ¼¼¿ä.");
+      setProfileImageError("í”„ë¡œí•„ ì´ë¯¸ì§€ë¥¼ ì„ íƒí•´ì£¼ì„¸ìš”.");
       return;
     }
 
@@ -64,10 +64,10 @@ export default function ProfileEditPage() {
         body: form,
       });
 
-      navigate("/profile");
+      alert("í”„ë¡œí•„ ì´ë¯¸ì§€ê°€ ì—…ë¡œë“œë˜ì—ˆìŠµë‹ˆë‹¤.");
     } catch (err) {
       setProfileImageError(
-        err instanceof Error ? err.message : "¾÷·Îµå¿¡ ½ÇÆÐÇß½À´Ï´Ù."
+        err instanceof Error ? err.message : "ì—…ë¡œë“œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."
       );
     } finally {
       setProfileImageUploading(false);
@@ -97,7 +97,7 @@ export default function ProfileEditPage() {
         setOriginalProfile(userData);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
-        alert("ÇÁ·ÎÇÊ Á¤º¸¸¦ ºÒ·¯¿ÀÁö ¸øÇß½À´Ï´Ù.");
+        alert("í”„ë¡œí•„ ì •ë³´ë¥¼ ë¶ˆëŸ¬ì˜¤ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
       }
     };
 
@@ -123,11 +123,11 @@ export default function ProfileEditPage() {
   const requestPasswordOtp = async () => {
     if (!wantsPasswordChange) return;
     if (!isPasswordValid) {
-      alert("ºñ¹Ð¹øÈ£ È®ÀÎÀ» ¸ÕÀú ¿Ï·áÇØÁÖ¼¼¿ä.");
+      alert("ë¹„ë°€ë²ˆí˜¸ í™•ì¸ì„ ë¨¼ì € ì™„ë£Œí•´ì£¼ì„¸ìš”.");
       return;
     }
     if (password.length < 8) {
-      alert("ºñ¹Ð¹øÈ£´Â 8ÀÚ ÀÌ»óÀÌ¾î¾ß ÇÕ´Ï´Ù.");
+      alert("ë¹„ë°€ë²ˆí˜¸ëŠ” 8ìž ì´ìƒì´ì–´ì•¼ í•©ë‹ˆë‹¤.");
       return;
     }
 
@@ -140,14 +140,14 @@ export default function ProfileEditPage() {
       setOtpStatus({
         sending: false,
         verifying: false,
-        message: "ÀÎÁõ ÄÚµå°¡ ¹ß¼ÛµÇ¾ú½À´Ï´Ù.",
+        message: "ì¸ì¦ ì½”ë“œê°€ ë°œì†¡ë˜ì—ˆìŠµë‹ˆë‹¤.",
       });
     } catch (err) {
       setOtpStatus({ sending: false, verifying: false, message: "" });
       alert(
         err instanceof Error
           ? err.message
-          : "ÀÎÁõ ÄÚµå¸¦ º¸³»´Â µ¥ ½ÇÆÐÇß½À´Ï´Ù."
+          : "ì¸ì¦ ì½”ë“œë¥¼ ë³´ë‚´ëŠ” ë° ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤."
       );
     }
   };
@@ -163,13 +163,11 @@ export default function ProfileEditPage() {
         body: JSON.stringify({ newPassword: password, code: otpCode }),
       });
       setPasswordChanged(true);
-      setOtpStatus({ sending: false, verifying: false, message: "ÀÎÁõ ¿Ï·á" });
+      setOtpStatus({ sending: false, verifying: false, message: "ì¸ì¦ ì™„ë£Œ" });
     } catch (err) {
       setPasswordChanged(false);
       setOtpStatus({ sending: false, verifying: false, message: "" });
-      alert(
-        err instanceof Error ? err.message : "ÀÎÁõÀ» ¿Ï·áÇÏÁö ¸øÇß½À´Ï´Ù."
-      );
+      alert(err instanceof Error ? err.message : "ì¸ì¦ì„ ì™„ë£Œí•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
     }
   };
 
@@ -194,11 +192,11 @@ export default function ProfileEditPage() {
         body: JSON.stringify(body),
       });
 
-      alert("ÇÁ·ÎÇÊÀÌ ÀúÀåµÇ¾ú½À´Ï´Ù.");
+      alert("í”„ë¡œí•„ì´ ì €ìž¥ë˜ì—ˆìŠµë‹ˆë‹¤.");
       navigate("/profile");
     } catch (err) {
       console.error(err);
-      alert("ÇÁ·ÎÇÊ ÀúÀå¿¡ ½ÇÆÐÇß½À´Ï´Ù.");
+      alert("í”„ë¡œí•„ ì €ìž¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.");
     }
   };
 
@@ -213,7 +211,7 @@ export default function ProfileEditPage() {
             >
               <img
                 src="/logo.png"
-                alt="¿ä±âÁ¶±â ·Î°í"
+                alt="ìš”ê¸°ì¡°ê¸° ë¡œê³ "
                 className="w-12 h-12 rounded-lg"
               />
               <h1
@@ -224,13 +222,13 @@ export default function ProfileEditPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                ¿ä±âÁ¶±â
+                ìš”ê¸°ì¡°ê¸°
               </h1>
             </Link>
             <div className="space-y-1">
-              <p className="text-lg font-semibold">ÇÁ·ÎÇÊ ¼öÁ¤</p>
+              <p className="text-lg font-semibold">í”„ë¡œí•„ ìˆ˜ì •</p>
               <p className="text-sm text-muted-foreground">
-                ´Ð³×ÀÓ°ú ¼Ò°³, ºñ¹Ð¹øÈ£¸¦ ¾÷µ¥ÀÌÆ®ÇÒ ¼ö ÀÖ¾î¿ä.
+                ë‹‰ë„¤ìž„ê³¼ ì†Œê°œ, ë¹„ë°€ë²ˆí˜¸ë¥¼ ì—…ë°ì´íŠ¸í•  ìˆ˜ ìžˆì–´ìš”.
               </p>
             </div>
           </header>
@@ -238,7 +236,7 @@ export default function ProfileEditPage() {
           <form className="space-y-6">
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground">
-                ÇÁ·ÎÇÊ »çÁø
+                í”„ë¡œí•„ ì‚¬ì§„
               </label>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-muted border border-border">
@@ -270,14 +268,14 @@ export default function ProfileEditPage() {
                     variant="outline"
                     onClick={() => profileImageInputRef.current?.click()}
                   >
-                    ¼±ÅÃ
+                    ì„ íƒ
                   </Button>
                   <Button
                     type="button"
                     onClick={uploadProfileImage}
                     disabled={profileImageUploading}
                   >
-                    {profileImageUploading ? "¾÷·Îµå Áß..." : "¾÷·Îµå"}
+                    {profileImageUploading ? "ì—…ë¡œë“œ ì¤‘..." : "ì—…ë¡œë“œ"}
                   </Button>
                 </div>
               </div>
@@ -289,7 +287,7 @@ export default function ProfileEditPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                ´Ð³×ÀÓ
+                ë‹‰ë„¤ìž„
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -297,19 +295,19 @@ export default function ProfileEditPage() {
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="´Ð³×ÀÓÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä"
+                  placeholder="ë‹‰ë„¤ìž„ì„ ìž…ë ¥í•´ì£¼ì„¸ìš”"
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getNicknameBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                 />
               </div>
               {nickname.trim().length === 0 && (
-                <p className="text-xs text-red-500">´Ð³×ÀÓÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.</p>
+                <p className="text-xs text-red-500">ë‹‰ë„¤ìž„ì„ ìž…ë ¥í•´ì£¼ì„¸ìš”.</p>
               )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  »õ ºñ¹Ð¹øÈ£
+                  ìƒˆ ë¹„ë°€ë²ˆí˜¸
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -317,19 +315,19 @@ export default function ProfileEditPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="»õ ºñ¹Ð¹øÈ£"
+                    placeholder="ìƒˆ ë¹„ë°€ë²ˆí˜¸"
                     autoComplete="new-password"
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  ºñ¹Ð¹øÈ£¸¦ º¯°æÇÏÁö ¾ÊÀ¸·Á¸é ºñ¿öµÎ¼¼¿ä.
+                  ë¹„ë°€ë²ˆí˜¸ë¥¼ ë³€ê²½í•˜ì§€ ì•Šìœ¼ë ¤ë©´ ë¹„ì›Œë‘ì„¸ìš”.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  ºñ¹Ð¹øÈ£ È®ÀÎ
+                  ë¹„ë°€ë²ˆí˜¸ í™•ì¸
                 </label>
                 <div className="relative">
                   <CheckCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -337,26 +335,26 @@ export default function ProfileEditPage() {
                     type="password"
                     value={passwordConfirm}
                     onChange={(e) => setPasswordConfirm(e.target.value)}
-                    placeholder="ºñ¹Ð¹øÈ£ È®ÀÎ"
+                    placeholder="ë¹„ë°€ë²ˆí˜¸ í™•ì¸"
                     autoComplete="new-password"
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border border-border ${getPasswordConfirmBgColor()} text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors`}
                   />
                 </div>
                 {passwordConfirm !== "" && password !== passwordConfirm && (
                   <p className="text-xs text-red-500">
-                    ºñ¹Ð¹øÈ£°¡ ÀÏÄ¡ÇÏÁö ¾Ê½À´Ï´Ù.
+                    ë¹„ë°€ë²ˆí˜¸ê°€ ì¼ì¹˜í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
                   </p>
                 )}
                 {passwordConfirm !== "" && password === passwordConfirm && (
                   <p className="text-xs text-green-500">
-                    ºñ¹Ð¹øÈ£°¡ ÀÏÄ¡ÇÕ´Ï´Ù.
+                    ë¹„ë°€ë²ˆí˜¸ê°€ ì¼ì¹˜í•©ë‹ˆë‹¤.
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  ÀÌ¸ÞÀÏ ÀÎÁõ
+                  ì´ë©”ì¼ ì¸ì¦
                 </label>
                 <Button
                   type="button"
@@ -365,7 +363,7 @@ export default function ProfileEditPage() {
                   onClick={requestPasswordOtp}
                   disabled={!wantsPasswordChange || otpStatus.sending}
                 >
-                  {otpStatus.sending ? "¹ß¼Û Áß.." : "ÀÎÁõ"}
+                  {otpStatus.sending ? "ë°œì†¡ ì¤‘.." : "ì¸ì¦"}
                 </Button>
 
                 {showVerification && (
@@ -376,7 +374,7 @@ export default function ProfileEditPage() {
                         type="text"
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value)}
-                        placeholder="ÀÎÁõ¹øÈ£ 6ÀÚ¸® ÀÔ·Â"
+                        placeholder="ì¸ì¦ë²ˆí˜¸ 6ìžë¦¬ ìž…ë ¥"
                         className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                       />
                     </div>
@@ -392,7 +390,7 @@ export default function ProfileEditPage() {
                         !isPasswordValid
                       }
                     >
-                      {otpStatus.verifying ? "È®ÀÎ Áß.." : "È®ÀÎ"}
+                      {otpStatus.verifying ? "í™•ì¸ ì¤‘.." : "í™•ì¸"}
                     </Button>
                   </>
                 )}
@@ -413,13 +411,13 @@ export default function ProfileEditPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                ¼Ò°³
+                ì†Œê°œ
               </label>
               <textarea
                 rows={3}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="³ªÀÇ ¿©Çà °æÇè°ú °ü·ÃµÈ ¼Ò°³¸¦ Àû¾îÁÖ¼¼¿ä."
+                placeholder="ë‚˜ì˜ ì—¬í–‰ ê²½í—˜ê³¼ ê´€ë ¨ëœ ì†Œê°œë¥¼ ì ì–´ì£¼ì„¸ìš”."
                 className="w-full px-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
               />
             </div>
@@ -432,7 +430,7 @@ export default function ProfileEditPage() {
                 className="w-full sm:w-auto bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontFamily: notoSansKR, fontWeight: 900 }}
               >
-                ÀúÀåÇÏ±â
+                ì €ìž¥í•˜ê¸°
               </Button>
             </div>
           </form>
@@ -442,7 +440,7 @@ export default function ProfileEditPage() {
               to="/profile"
               className="text-primary hover:underline font-medium"
             >
-              ¸¶ÀÌÆäÀÌÁö·Î µ¹¾Æ°¡±â
+              ë§ˆì´íŽ˜ì´ì§€ë¡œ ëŒì•„ê°€ê¸°
             </Link>
           </div>
         </div>

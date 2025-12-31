@@ -60,6 +60,8 @@ export default function Home() {
     id: p.id,
     title: p.title,
     author: p.author_name || "작성자",
+    authorId: p.author_id,
+    authorAvatar: p.author_avatar || "/user-profile-avatar.png",
     location: p.region || "한국",
     likes: p.like_count ?? 0,
     comments: p.comment_count ?? 0,
@@ -621,9 +623,18 @@ export default function Home() {
                         </div>
 
                         <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-                          <span className="font-medium text-foreground/70">
-                            {post.author}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={
+                                post.authorAvatar || "/user-profile-avatar.png"
+                              }
+                              alt={post.author}
+                              className="w-6 h-6 rounded-full bg-secondary"
+                            />
+                            <span className="font-medium text-foreground/70">
+                              {post.author}
+                            </span>
+                          </div>
                           <span>{post.date}</span>
                         </div>
 
@@ -701,9 +712,16 @@ export default function Home() {
                     </div>
 
                     <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-                      <span className="font-medium text-foreground/70">
-                        {post.author}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={post.authorAvatar || "/user-profile-avatar.png"}
+                          alt={post.author}
+                          className="w-6 h-6 rounded-full bg-secondary"
+                        />
+                        <span className="font-medium text-foreground/70">
+                          {post.author}
+                        </span>
+                      </div>
                       <span>{post.date}</span>
                     </div>
 

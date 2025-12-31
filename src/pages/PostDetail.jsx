@@ -279,12 +279,30 @@ export default function PostDetail() {
           .filter(Boolean);
         setPostImages(images);
 
+        console.log("게시글 작성자 정보 (원본):", {
+          author_id: p.author_id,
+          author_name: p.author_name,
+          author_avatar: p.author_avatar,
+          전체데이터: p,
+        }); // 디버깅용
+
+        // author_avatar가 빈 문자열이거나 null이면 null로 처리
+        const authorAvatar =
+          p.author_avatar && p.author_avatar.trim() !== ""
+            ? p.author_avatar
+            : null;
+
+        console.log("처리된 작성자 정보:", {
+          author: p.author_name || p.author || "작성자",
+          authorAvatar: authorAvatar,
+        });
+
         setPost({
           id: p.id,
           title: p.title,
           author: p.author_name || p.author || "작성자",
           authorId: p.author_id,
-          authorAvatar: p.author_avatar || "/user-profile-avatar.png",
+          authorAvatar: authorAvatar, // null이면 렌더링 시 fallback 처리
           location: p.region || p.location || "한국",
           date: p.created_at
             ? new Date(p.created_at).toLocaleDateString("ko-KR")
@@ -507,8 +525,8 @@ export default function PostDetail() {
               </span>
             </Link>
             <div className="flex items-center gap-2">
-              {/* 임시: 모든 게시글에 수정 버튼 표시 (나중에 조건 추가) */}
-              {post && (
+              {/* 본인 게시글만 수정 버튼 표시 */}
+              {post && currentUserId && post.authorId === currentUserId && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -549,9 +567,13 @@ export default function PostDetail() {
               {/* 작가 정보 */}
               <div className="flex items-center gap-3">
                 <img
-                  src={post.authorAvatar || "/placeholder.svg"}
+                  src={post.authorAvatar || "/user-profile-avatar.png"}
                   alt={post.author}
                   className="w-12 h-12 rounded-full bg-secondary"
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 기본 이미지로 대체
+                    e.target.src = "/user-profile-avatar.png";
+                  }}
                 />
                 <div>
                   <p className="font-semibold text-foreground">{post.author}</p>

@@ -10,6 +10,8 @@ import { ko } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
 
 const notoSansKR = "Noto Sans KR";
+const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
+const KAKAO_SCRIPT_ID = "kakao-map-sdk";
 
 export default function WritePage() {
   const navigate = useNavigate();
@@ -37,6 +39,12 @@ export default function WritePage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedRange, setSelectedRange] = useState({ from: null, to: null });
   const calendarRef = useRef(null);
+  const locationBoxRef = useRef(null);
+  const skipPlaceSearchRef = useRef(false);
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(false);
+  const [placeSearchError, setPlaceSearchError] = useState("");
 
   // 인증 체크
   useEffect(() => {
@@ -135,14 +143,20 @@ export default function WritePage() {
       if (calendarRef.current && !calendarRef.current.contains(event.target)) {
         setShowCalendar(false);
       }
+
+      if (
+        locationBoxRef.current &&
+        !locationBoxRef.current.contains(event.target)
+      ) {
+        setPlaceSuggestions([]);
+      }
     };
 
-    if (showCalendar) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showCalendar]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // 날짜 범위가 변경되면 dateRange 업데이트
   useEffect(() => {
@@ -157,10 +171,100 @@ export default function WritePage() {
     }
   }, [selectedRange]);
 
+  useEffect(() => {
+    if (!KAKAO_MAP_KEY) {
+      setPlaceSearchError(
+        "Kakao 장소 검색 키(VITE_KAKAO_MAP_KEY)가 설정되지 않았습니다."
+      );
+      return;
+    }
+
+    if (window.kakao?.maps?.services) {
+      window.kakao.maps.load(() => setKakaoReady(true));
+      return;
+    }
+
+    let script = document.getElementById(KAKAO_SCRIPT_ID);
+    if (!script) {
+      script = document.createElement("script");
+      script.id = KAKAO_SCRIPT_ID;
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_KEY}&autoload=false&libraries=services`;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+
+    script.onload = () => {
+      if (!window.kakao?.maps) {
+        setPlaceSearchError("카카오 지도 SDK 로딩에 실패했습니다.");
+        return;
+      }
+      window.kakao.maps.load(() => setKakaoReady(true));
+    };
+
+    script.onerror = () =>
+      setPlaceSearchError("카카오 지도 SDK를 불러오지 못했습니다.");
+  }, []);
+
+  useEffect(() => {
+    if (!kakaoReady) return;
+
+    if (skipPlaceSearchRef.current) {
+      skipPlaceSearchRef.current = false;
+      return;
+    }
+
+    const query = location.trim();
+    if (!query || query.length < 2) {
+      setPlaceSuggestions([]);
+      setSearchingPlaces(false);
+      return;
+    }
+
+    setSearchingPlaces(true);
+    setPlaceSearchError("");
+    const timeoutId = setTimeout(() => {
+      const service = new window.kakao.maps.services.Places();
+      service.keywordSearch(query, (data, status) => {
+        if (status === window.kakao.maps.services.Status.OK) {
+          setPlaceSuggestions((data || []).slice(0, 5));
+          setPlaceSearchError("");
+        } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+          setPlaceSuggestions([]);
+          setPlaceSearchError("");
+        } else {
+          setPlaceSuggestions([]);
+          setPlaceSearchError("카카오 장소 검색에 실패했습니다.");
+        }
+        setSearchingPlaces(false);
+      });
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [location, kakaoReady]);
+
   // 인증되지 않았으면 아무것도 렌더링하지 않음
   if (!isAuthed) {
     return null;
   }
+
+  const formatRegionLabel = (place) => {
+    const base =
+      place.road_address_name || place.address_name || place.place_name || "";
+    const parts = base.split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]} ${parts[1]}`;
+    }
+    return base.trim();
+  };
+
+  const handleSelectSuggestion = (place) => {
+    const formatted = formatRegionLabel(place);
+    skipPlaceSearchRef.current = true;
+    setLocation(formatted);
+    setPlaceSuggestions([]);
+    setSearchingPlaces(false);
+    setPlaceSearchError("");
+  };
 
   const handleSubmit = async () => {
     if (!title || !content || !location) {
@@ -446,7 +550,7 @@ export default function WritePage() {
                 <label className="block text-sm font-medium text-foreground mb-2">
                   여행지
                 </label>
-                <div className="relative">
+                <div className="relative" ref={locationBoxRef}>
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
                     type="text"
@@ -454,7 +558,44 @@ export default function WritePage() {
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
+                    autoComplete="off"
                   />
+                  {(placeSuggestions.length > 0 ||
+                    (location.trim().length >= 2 &&
+                      (searchingPlaces || placeSearchError))) && (
+                    <div className="absolute left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-72 overflow-y-auto">
+                      {searchingPlaces && (
+                        <div className="px-4 py-3 text-sm text-muted-foreground">
+                          ??? ??? ?? ????...
+                        </div>
+                      )}
+                      {placeSuggestions.map((place) => (
+                        <button
+                          type="button"
+                          key={place.id}
+                          onClick={() => handleSelectSuggestion(place)}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary transition-colors border-b border-border/60 last:border-b-0"
+                        >
+                          <p className="font-medium text-foreground text-sm">
+                            {place.place_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {place.road_address_name || place.address_name}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {formatRegionLabel(place)}
+                          </p>
+                        </button>
+                      ))}
+                      {!searchingPlaces &&
+                        placeSuggestions.length === 0 &&
+                        placeSearchError && (
+                          <div className="px-4 py-3 text-sm text-destructive">
+                            {placeSearchError}
+                          </div>
+                        )}
+                    </div>
+                  )}
                 </div>
               </div>
 

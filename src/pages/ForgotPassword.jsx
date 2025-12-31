@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
             >
               <img
                 src="/logo.png"
-                alt="여기저기 로고"
+                alt="요기조기 로고"
                 className="w-12 h-12 rounded-lg"
               />
               <h1
@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                여기저기
+                요기조기
               </h1>
             </Link>
             <div>

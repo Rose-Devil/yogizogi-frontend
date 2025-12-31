@@ -1,48 +1,101 @@
-import { Link, useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Mail, Lock, User } from "lucide-react"
-import { useState } from "react"
-import { signup } from "@/api/auth"
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Mail, Lock, User, Link as LinkIcon, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { signup, signupRequestCode, signupVerifyCode } from "@/api/auth";
 
-const notoSansKR = "Noto Sans KR"
+const notoSansKR = "Noto Sans KR";
 
-export default function SignupPage() {
-  // 백엔드 필드(회원가입): nickname, email, password, passwordConfirm, termsAccepted, privacyAccepted
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [privacyAccepted, setPrivacyAccepted] = useState(false)
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
+export default function Signup() {
+  const [email, setEmail] = useState("");
+  const [signupTicket, setSignupTicket] = useState("");
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpStatus, setOtpStatus] = useState({
+    sending: false,
+    verifying: false,
+    message: "",
+  });
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const isEmailVerified = Boolean(signupTicket) && verifiedEmail === email;
+
+  const onChangeEmail = (nextEmail) => {
+    setEmail(nextEmail);
+    if (verifiedEmail !== nextEmail) {
+      setSignupTicket("");
+      setOtpCode("");
+      setOtpStatus({ sending: false, verifying: false, message: "" });
+    }
+  };
+
+  const sendOtp = async () => {
+    setError("");
+    setOtpStatus({ sending: true, verifying: false, message: "" });
+    try {
+      await signupRequestCode({ email });
+      setShowVerification(true);
+      setOtpStatus({
+        sending: false,
+        verifying: false,
+        message: "인증 코드를 전송했습니다.",
+      });
+    } catch (err) {
+      setOtpStatus({ sending: false, verifying: false, message: "" });
+      setError(err instanceof Error ? err.message : "인증 코드 전송에 실패했습니다.");
+    }
+  };
+
+  const verifyOtp = async () => {
+    setError("");
+    setOtpStatus({ sending: false, verifying: true, message: "" });
+    try {
+      const data = await signupVerifyCode({ email, code: otpCode });
+      const ticket = data?.ticket;
+      if (!ticket) throw new Error("인증 티켓이 없습니다.");
+      setSignupTicket(ticket);
+      setVerifiedEmail(email);
+      setOtpStatus({ sending: false, verifying: false, message: "인증 완료" });
+    } catch (err) {
+      setSignupTicket("");
+      setVerifiedEmail("");
+      setOtpStatus({ sending: false, verifying: false, message: "" });
+      setError(err instanceof Error ? err.message : "인증 확인에 실패했습니다.");
+    }
+  };
 
   const onSubmit = async (e) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
-    const form = new FormData(e.currentTarget)
-    const formNickname = String(form.get("nickname") ?? "").trim()
-    const formEmail = String(form.get("email") ?? "").trim()
-    const formPassword = String(form.get("password") ?? "")
-
-    if (false) {
-      setError("비밀번호가 일치하지 않습니다.")
-      return
-    }
-    if (!termsAccepted || !privacyAccepted) {
-      setError("약관과 개인정보 처리방침에 동의해주세요.")
-      return
+    if (password !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
     }
 
-    setIsLoading(true)
+    if (!isEmailVerified) {
+      setError("이메일 인증이 필요합니다.");
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      await signup({ nickname: formNickname, email: formEmail, password: formPassword })
-      navigate("/")
+      await signup({ email, password, nickname, url, signupTicket });
+      navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.")
+      setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-secondary flex items-center justify-center px-4">
@@ -50,39 +103,104 @@ export default function SignupPage() {
         <div className="p-8">
           <div className="text-center mb-8">
             <Link to="/" className="flex items-center justify-center gap-3 mb-4 hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="여기저기 로고" className="w-12 h-12 rounded-lg" />
+              <img src="/logo.png" alt="요기조기 로고" className="w-12 h-12 rounded-lg" />
               <h1
                 className="text-2xl"
-                style={{ fontFamily: notoSansKR, fontWeight: 900, transform: "translate(-7px, 1.5px)" }}
+                style={{
+                  fontFamily: notoSansKR,
+                  fontWeight: 900,
+                  transform: "translate(-7px, 1.5px)",
+                }}
               >
-                여기저기
+                요기조기
               </h1>
             </Link>
-            <p className="text-muted-foreground mt-2">여행 커뮤니티에 가입하세요</p>
+            <p className="text-muted-foreground mt-2">새 계정을 만들어 시작하세요</p>
           </div>
 
           <form className="space-y-5" onSubmit={onSubmit}>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">이메일</label>
+              <div className="space-y-2">
+                <div className="flex gap-2 flex-col sm:flex-row">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <input
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => onChangeEmail(e.target.value)}
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="whitespace-nowrap"
+                    onClick={sendOtp}
+                    disabled={!email || otpStatus.sending}
+                  >
+                    {otpStatus.sending ? "전송 중..." : "인증"}
+                  </Button>
+                </div>
+
+                {showVerification && (
+                  <div className="flex gap-2 flex-col sm:flex-row items-start sm:items-center">
+                    <div className="relative flex-1">
+                      <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        placeholder="인증번호 6자리 입력"
+                        className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="whitespace-nowrap"
+                      onClick={verifyOtp}
+                      disabled={otpStatus.verifying || otpCode.trim().length !== 6}
+                    >
+                      {otpStatus.verifying ? "확인 중..." : "확인"}
+                    </Button>
+                  </div>
+                )}
+
+                {otpStatus.message && (
+                  <p className={`text-sm ${isEmailVerified ? "text-green-600" : "text-muted-foreground"}`}>
+                    {otpStatus.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">닉네임</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="text"
-                  name="nickname"
-                  placeholder="여행러미"
+                  placeholder="닉네임"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">이메일</label>
+              <label className="block text-sm font-medium text-foreground mb-2">프로필 URL (선택)</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
-                  type="email"
-                  name="email"
-                  placeholder="your@email.com"
+                  type="url"
+                  placeholder="https://..."
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
@@ -95,11 +213,12 @@ export default function SignupPage() {
                 <input
                   type="password"
                   placeholder="********"
-                  name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">8자 이상, 영문/숫자/특수문자 조합을 권장해요</p>
             </div>
 
             <div>
@@ -108,36 +227,12 @@ export default function SignupPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="password"
-                  placeholder="비밀번호 확인"
+                  placeholder="********"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
-              </div>
-            </div>
-
-            <div className="space-y-3 bg-secondary/50 p-3 rounded-lg">
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  className="w-4 h-4 rounded mt-1"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                />
-                <label htmlFor="terms" className="text-sm text-foreground cursor-pointer">
-                  이용약관에 동의합니다
-                </label>
-              </div>
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="privacy"
-                  className="w-4 h-4 rounded mt-1"
-                  checked={privacyAccepted}
-                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                />
-                <label htmlFor="privacy" className="text-sm text-foreground cursor-pointer">
-                  개인정보 처리방침에 동의합니다
-                </label>
               </div>
             </div>
 
@@ -147,35 +242,22 @@ export default function SignupPage() {
               type="submit"
               className="w-full bg-primary hover:bg-primary/90 py-3 text-base font-medium"
               style={{ fontFamily: notoSansKR, fontWeight: 900 }}
-              disabled={isLoading}
+              disabled={isLoading || !isEmailVerified}
             >
               회원가입
             </Button>
           </form>
 
-          <div className="my-6 flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">또는</span>
-            <div className="flex-1 h-px bg-border" />
+          <div className="mt-8 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">
+              이미 계정이 있으신가요?{" "}
+              <Link to="/login" className="text-primary hover:underline font-medium">
+                로그인
+              </Link>
+            </p>
           </div>
-
-          <div className="space-y-3">
-            <button className="w-full py-3 rounded-lg border border-border bg-card hover:bg-secondary transition-colors font-medium text-foreground">
-              Google로 가입
-            </button>
-            <button className="w-full py-3 rounded-lg border border-border bg-card hover:bg-secondary transition-colors font-medium text-foreground">
-              카카오로 가입
-            </button>
-          </div>
-
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            이미 계정이 있으신가요?{" "}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              로그인
-            </Link>
-          </p>
         </div>
       </Card>
     </div>
-  )
+  );
 }

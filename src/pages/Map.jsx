@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, Plus, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getAttractions } from "@/api/attractions";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
 
 const notoSansKR = "Noto Sans KR";
@@ -11,12 +10,18 @@ const KAKAO_SCRIPT_ID = "kakao-map-sdk";
 
 export default function MapPage() {
   const mapContainer = useRef(null);
+  const mapRef = useRef(null);
+  const clustererRef = useRef(null);
+  const markersRef = useRef([]);
   const [markers, setMarkers] = useState([]);
-  const [filterType, setFilterType] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(5);
   const [loading, setLoading] = useState(false);
   const [mapLoadError, setMapLoadError] = useState(null);
+  const [statusMessage, setStatusMessage] = useState(
+    "키워드 검색 후 결과가 표시됩니다."
+  );
   const { isAuthed, logout } = useAuthStatus();
 
   useEffect(() => {
@@ -66,61 +71,117 @@ export default function MapPage() {
     };
 
     const map = new window.kakao.maps.Map(container, options);
+    mapRef.current = map;
 
     const clusterer = new window.kakao.maps.MarkerClusterer({
       map,
       averageCenter: true,
       minLevel: 4,
     });
+    clustererRef.current = clusterer;
 
     window.kakao.maps.event.addListener(map, "zoom_changed", () => {
       const level = map.getLevel();
       setZoomLevel(level);
-      updateMarkerVisibility(level, markers);
     });
-
-    loadPlacesData(map, clusterer, 37.5665, 126.978);
+    setStatusMessage("키워드 검색 후 결과가 표시됩니다.");
   };
 
   // 백엔드 필드(장소 API):
   // response: { success, data, error }
   // data[]: { id, name, type, lat, lng, address, description, rating }
   // 백엔드 필드(장소 API 응답): id, name, type, lat, lng, address, description, rating
-  const loadPlacesData = async (mapInstance, clustererInstance, lat, lng) => {
-    setLoading(true);
-    try {
-      const attractionData = await getAttractions(
-        lat.toString(),
-        lng.toString(),
-        "attraction"
-      );
-      const restaurantData = await getAttractions(
-        lat.toString(),
-        lng.toString(),
-        "restaurant"
-      );
+  const clearMarkers = () => {
+    const clusterer = clustererRef.current;
+    if (clusterer?.getMarkers) {
+      const existingMarkers = clusterer.getMarkers();
+      if (existingMarkers.length) {
+        clusterer.removeMarkers(existingMarkers);
+      }
+    }
 
-      if (!attractionData.success || !restaurantData.success) {
-        setMapLoadError(
-          attractionData.error ||
-            restaurantData.error ||
-            "관광/맛집 데이터를 불러오지 못했습니다."
-        );
+    markersRef.current.forEach((markerObj) => markerObj.marker?.setMap(null));
+    markersRef.current = [];
+    setMarkers([]);
+  };
+
+  const handleSearch = async (event) => {
+    event.preventDefault();
+    if (!window.kakao?.maps?.services || !mapRef.current) {
+      setMapLoadError("지도를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    if (!clustererRef.current) {
+      setMapLoadError("지도를 초기화하는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    if (loading) return;
+
+    const query = searchQuery.trim();
+    if (!query) {
+      setStatusMessage("검색어를 입력해주세요.");
+      return;
+    }
+
+    setLoading(true);
+    setMapLoadError(null);
+
+    try {
+      const placesService = new window.kakao.maps.services.Places();
+      const results = await new Promise((resolve, reject) => {
+        placesService.keywordSearch(query, (data, status) => {
+          if (status === window.kakao.maps.services.Status.OK) {
+            resolve(data || []);
+            return;
+          }
+          if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+            resolve([]);
+            return;
+          }
+          reject(new Error("카카오 키워드 검색에 실패했습니다."));
+        });
+      });
+
+      if (!results.length) {
+        clearMarkers();
+        setSelectedMarker(null);
+        setStatusMessage("검색 결과가 없습니다.");
+        return;
       }
 
-      const allPlaces = [
-        ...(attractionData.success ? attractionData.data || [] : []),
-        ...(restaurantData.success ? restaurantData.data || [] : []),
-      ];
+      clearMarkers();
+      setSelectedMarker(null);
 
-      const placesToRender = allPlaces;
+      const formattedPlaces = results
+        .map((place) => ({
+          id: place.id,
+          name: place.place_name,
+          lat: Number.parseFloat(place.y),
+          lng: Number.parseFloat(place.x),
+          address: place.road_address_name || place.address_name,
+          phone: place.phone,
+          url: place.place_url,
+          category: place.category_name,
+        }))
+        .filter(
+          (place) => Number.isFinite(place.lat) && Number.isFinite(place.lng)
+        );
 
-      const newMarkers = placesToRender.map((place) => {
-        const iconColor = place.type === "restaurant" ? "#FF6B6B" : "#0EA5E9";
+      if (!formattedPlaces.length) {
+        setStatusMessage("검색 결과가 없습니다.");
+        return;
+      }
+
+      const first = formattedPlaces[0];
+      if (Number.isFinite(first.lat) && Number.isFinite(first.lng)) {
+        const newCenter = new window.kakao.maps.LatLng(first.lat, first.lng);
+        mapRef.current.panTo(newCenter);
+      }
+
+      const newMarkers = formattedPlaces.map((place) => {
         const markerImage = new window.kakao.maps.MarkerImage(
-          `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='${encodeURIComponent(
-            iconColor
-          )}'/%3E%3C/svg%3E`,
+          `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230EA5E9'/%3E%3C/svg%3E`,
           new window.kakao.maps.Size(32, 32)
         );
 
@@ -133,44 +194,24 @@ export default function MapPage() {
         window.kakao.maps.event.addListener(marker, "click", () =>
           setSelectedMarker(place)
         );
-        clustererInstance?.addMarker(marker);
+
+        if (clustererRef.current?.addMarker) {
+          clustererRef.current.addMarker(marker);
+        }
 
         return { ...place, marker };
       });
 
+      markersRef.current = newMarkers;
       setMarkers(newMarkers);
+      setStatusMessage("");
     } catch (error) {
-      console.error("Error loading places:", error);
-      setMapLoadError("관광/맛집 데이터를 불러오는 중 오류가 발생했습니다.");
+      console.error("Keyword search error:", error);
+      setMapLoadError("키워드 검색 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
   };
-
-  const updateMarkerVisibility = (level, markerList) => {
-    markerList.forEach((markerObj) => {
-      if (level <= 3) {
-        markerObj.marker?.setVisible(false);
-      } else {
-        markerObj.marker?.setVisible(true);
-      }
-    });
-  };
-
-  const filteredMarkers = markers.filter((marker) => {
-    if (filterType === "all") return true;
-    return marker.type === filterType;
-  });
-
-  useEffect(() => {
-    markers.forEach((markerObj) => {
-      if (filterType === "all") {
-        markerObj.marker?.setVisible(true);
-      } else {
-        markerObj.marker?.setVisible(markerObj.type === filterType);
-      }
-    });
-  }, [filterType, markers]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -187,7 +228,7 @@ export default function MapPage() {
               <div className="flex items-center gap-3 cursor-pointer">
                 <img
                   src="/logo.png"
-                  alt="여기저기"
+                  alt="요기조기"
                   className="w-10 h-10 rounded-lg flex-shrink-0"
                 />
                 <span
@@ -198,7 +239,7 @@ export default function MapPage() {
                     transform: "translate(-7px, 1.5px)",
                   }}
                 >
-                  여기저기
+                  요기조기
                 </span>
               </div>
             </Link>
@@ -252,34 +293,27 @@ export default function MapPage() {
               위치 검색
             </h2>
 
-            <div className="flex gap-2 mb-6">
-              {[
-                { key: "all", label: "전체" },
-                { key: "restaurant", label: "맛집" },
-                { key: "attraction", label: "관광지" },
-              ].map((filter) => (
-                <button
-                  key={filter.key}
-                  onClick={() => setFilterType(filter.key)}
-                  className={`px-4 py-2 rounded-full font-medium transition-all ${
-                    filterType === filter.key
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-foreground hover:bg-primary/20"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
+            <form className="flex gap-2 mb-4" onSubmit={handleSearch}>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="장소 검색..."
+                  className="w-full pl-10 pr-4 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <Button type="submit" className="px-4 py-2">
+                검색
+              </Button>
+            </form>
 
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="장소 검색..."
-                className="w-full pl-10 pr-4 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
+            {statusMessage && !loading && (
+              <p className="text-sm text-muted-foreground mb-6">
+                {statusMessage}
+              </p>
+            )}
 
             {selectedMarker && (
               <div className="bg-secondary/50 border border-border rounded-lg p-4 mb-6">
@@ -287,47 +321,42 @@ export default function MapPage() {
                   {selectedMarker.name}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-2">
-                  {selectedMarker.address}
+                  {selectedMarker.address || "주소 정보가 없습니다."}
                 </p>
-                <p className="text-sm text-foreground mb-3">
-                  {selectedMarker.description}
-                </p>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-sm font-medium">평점:</span>
-                  <span className="text-sm text-primary">
-                    {selectedMarker.rating.toFixed(1)}/5.0
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 bg-primary hover:bg-primary/90"
+                {selectedMarker.phone && (
+                  <p className="text-sm text-foreground mb-2">
+                    전화: {selectedMarker.phone}
+                  </p>
+                )}
+                {selectedMarker.url && (
+                  <a
+                    href={selectedMarker.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm text-primary underline"
                   >
-                    자세히 보기
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                  >
-                    저장
-                  </Button>
-                </div>
+                    상세 보기
+                  </a>
+                )}
+                {selectedMarker.category && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedMarker.category}
+                  </p>
+                )}
               </div>
             )}
 
             <div className="mt-6">
               <h3 className="font-bold text-foreground mb-3">
-                주변{" "}
-                {filterType === "restaurant"
-                  ? "맛집"
-                  : filterType === "attraction"
-                  ? "관광지"
-                  : "장소"}{" "}
-                ({loading ? "로딩중..." : filteredMarkers.length})
+                검색 결과 ({loading ? "로딩중..." : markers.length})
               </h3>
               <div className="space-y-2">
-                {filteredMarkers.map((markerObj) => (
+                {!loading && markers.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {statusMessage || "검색 결과가 없습니다."}
+                  </p>
+                )}
+                {markers.map((markerObj) => (
                   <div
                     key={markerObj.id}
                     onClick={() => setSelectedMarker(markerObj)}

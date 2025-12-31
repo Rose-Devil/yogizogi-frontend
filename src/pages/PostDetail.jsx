@@ -9,22 +9,257 @@ import {
   X,
   Plus,
 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
+import { getComments, createComment, createReply } from "@/api/comments";
+import { apiJson } from "@/api/client";
+import { me } from "@/api/auth";
+
+// 재귀적 댓글 컴포넌트 (외부로 이동)
+const CommentItem = ({
+  comment,
+  replyTargetId,
+  setReplyTargetId,
+  setReplyContent,
+  replyContent,
+  handleSubmitReply,
+  replyLoading,
+}) => {
+  const isReplying = replyTargetId === comment.id;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Card className="p-4 border-border/50">
+        <div className="flex gap-3">
+          <img
+            src={comment.author?.profile_image || "/user-profile-avatar.png"}
+            alt={comment.author?.nickname || comment.author || "작성자"}
+            className="w-10 h-10 rounded-full bg-secondary"
+          />
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-semibold text-foreground">
+                {comment.author?.nickname || comment.author || "작성자"}
+              </p>
+              <div className="flex items-center gap-2">
+                {comment.is_ai && (
+                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                    AI Bot
+                  </span>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {new Date(
+                    comment.created_at || comment.createdAt || comment.date
+                  ).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <p className="text-foreground mb-2 whitespace-pre-wrap">
+              {comment.content}
+            </p>
+            <div className="flex items-center gap-4">
+              <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Heart className="w-4 h-4" />
+                <span>{comment.likes || 0}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (replyTargetId === comment.id) {
+                    setReplyTargetId(null);
+                  } else {
+                    setReplyTargetId(comment.id);
+                    setReplyContent("");
+                  }
+                }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                {isReplying ? "취소" : "답글달기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 답글 입력 폼 */}
+      {isReplying && (
+        <div className="ml-12 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <textarea
+                placeholder={`@${
+                  comment.author?.nickname || "작성자"
+                } 님에게 답글 작성...`}
+                className="w-full bg-secondary/50 text-foreground placeholder-muted-foreground rounded-lg px-4 py-3 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                rows={2}
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                autoFocus
+              />
+              <div className="flex justify-end mt-2">
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={handleSubmitReply}
+                  disabled={replyLoading}
+                >
+                  {replyLoading ? "등록 중..." : "답글 등록"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 대댓글 렌더링 (재귀) */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="ml-12 border-l-2 border-border/50 pl-4 space-y-4">
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              replyTargetId={replyTargetId}
+              setReplyTargetId={setReplyTargetId}
+              setReplyContent={setReplyContent}
+              replyContent={replyContent}
+              handleSubmitReply={handleSubmitReply}
+              replyLoading={replyLoading}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function PostDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [post, setPost] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [comments, setComments] = useState([]); // 댓글 목록 상태 분리
+  const [currentUserProfileImage, setCurrentUserProfileImage] = useState(null); // 현재 사용자 프로필 이미지
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
-  const [isLiked, setIsLiked] = useState(false); // TODO: 실제 로그인 유저 기준으로 교체
+  const [isLiked, setIsLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
-  const [tags, setTags] = useState([]); // 태그 목록 { id, name }
+  const [tags, setTags] = useState([]);
   const [newTagName, setNewTagName] = useState("");
   const [tagLoading, setTagLoading] = useState(false);
+
+  // 댓글 입력 상태
+  const [commentContent, setCommentContent] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [replyTargetId, setReplyTargetId] = useState(null); // 답글 작성 중인 댓글 ID
+  const [replyLoading, setReplyLoading] = useState(false); // 답글 전송 로딩
+
   const tagInputRef = useRef(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const shareMenuRef = useRef(null);
+  const [postImages, setPostImages] = useState([]); // 모든 여행 사진 저장
+
+  // 현재 사용자 정보 가져오기
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const userData = await me();
+        console.log("사용자 정보:", userData);
+        const userId =
+          userData?.user?.id || userData?.data?.id || userData?.data?.user?.id;
+        if (userId) {
+          setCurrentUserId(userId);
+          console.log("현재 사용자 ID:", userId);
+        }
+        const userImage =
+          userData?.user?.url ||
+          userData?.user?.image ||
+          userData?.data?.user?.url ||
+          userData?.data?.user?.image ||
+          userData?.user?.profile_image; // fallback
+        if (userImage) {
+          setCurrentUserProfileImage(userImage);
+        }
+      } catch (error) {
+        console.error("사용자 정보 가져오기 실패:", error);
+      }
+    }
+    loadCurrentUser();
+  }, []);
+
+  // 공유 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(event.target)
+      ) {
+        setShowShareMenu(false);
+      }
+    };
+
+    if (showShareMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showShareMenu]);
+
+  // URL 복사 함수
+  const handleCopyUrl = async () => {
+    const url = `${window.location.origin}/post/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("URL이 클립보드에 복사되었습니다!");
+      setShowShareMenu(false);
+    } catch (error) {
+      console.error("URL 복사 실패:", error);
+      alert("URL 복사에 실패했습니다.");
+    }
+  };
+
+  // SNS 공유 함수
+  const handleShareSNS = (platform) => {
+    const url = `${window.location.origin}/post/${id}`;
+    const title = post?.title || "여행기";
+    const text = post?.content?.substring(0, 100) || "";
+
+    let shareUrl = "";
+
+    switch (platform) {
+      case "kakao":
+        // 카카오톡 공유 (더미)
+        shareUrl = `https://story.kakao.com/share?url=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "facebook":
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "twitter":
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(
+          url
+        )}&text=${encodeURIComponent(title)}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      case "link":
+        shareUrl = `https://story.kakao.com/share?url=${encodeURIComponent(
+          url
+        )}`;
+        window.open(shareUrl, "_blank", "width=600,height=400");
+        break;
+      default:
+        break;
+    }
+
+    setShowShareMenu(false);
+  };
 
   useEffect(() => {
     async function loadPost() {
@@ -38,11 +273,36 @@ export default function PostDetail() {
 
         const p = json.data;
 
+        // 모든 여행 사진 저장
+        const images = (p.images || [])
+          .map((img) => img.image_url)
+          .filter(Boolean);
+        setPostImages(images);
+
+        console.log("게시글 작성자 정보 (원본):", {
+          author_id: p.author_id,
+          author_name: p.author_name,
+          author_avatar: p.author_avatar,
+          전체데이터: p,
+        }); // 디버깅용
+
+        // author_avatar가 빈 문자열이거나 null이면 null로 처리
+        const authorAvatar =
+          p.author_avatar && p.author_avatar.trim() !== ""
+            ? p.author_avatar
+            : null;
+
+        console.log("처리된 작성자 정보:", {
+          author: p.author_name || p.author || "작성자",
+          authorAvatar: authorAvatar,
+        });
+
         setPost({
           id: p.id,
           title: p.title,
           author: p.author_name || p.author || "작성자",
-          authorAvatar: p.author_avatar || "/user-profile-avatar.png",
+          authorId: p.author_id,
+          authorAvatar: authorAvatar, // null이면 렌더링 시 fallback 처리
           location: p.region || p.location || "한국",
           date: p.created_at
             ? new Date(p.created_at).toLocaleDateString("ko-KR")
@@ -50,24 +310,31 @@ export default function PostDetail() {
           comments: p.comment_count ?? 0,
           image:
             (p.images && p.images[0] && p.images[0].image_url) ||
+            p.thumbnail_url ||
             "/placeholder.svg",
           tags: (p.tags || []).map((t) => `#${t.name}`),
           content: p.content,
-          commentsList: [], // TODO: 댓글 API 연동 시 수정
         });
+        console.log("게시글 작성자 ID:", p.author_id, typeof p.author_id);
+        console.log("게시글 이미지:", images); // 디버깅용
         setLikeCount(p.like_count ?? 0);
         // 태그 목록 저장 (id 포함)
         setTags(p.tags || []);
 
-        // 사용자가 좋아요 눌렀는지 확인 (임시로 userId: 1 사용)
-        const userId = 1; // TODO: 실제 로그인 유저 ID로 교체
+        // 댓글 목록 로딩
         try {
-          const likeRes = await fetch(
-            `/api/posts/${id}/likes?userId=${userId}`
-          );
-          const likeJson = await likeRes.json();
-          if (likeJson.success && likeJson.data.isLiked !== undefined) {
-            setIsLiked(likeJson.data.isLiked);
+          const commentData = await getComments(id);
+          setComments(commentData || []);
+        } catch (e) {
+          console.error("댓글 로딩 실패:", e);
+        }
+
+        // 확인 현재 사용자의 좋아요 상태
+        try {
+          const res = await apiJson(`/api/posts/${id}/likes`);
+          if (res.success && res.data) {
+            setIsLiked(res.data.isLiked ?? false);
+            setLikeCount(res.data.likeCount ?? 0);
           }
         } catch (error) {
           console.error("좋아요 상태 확인 실패:", error);
@@ -116,29 +383,46 @@ export default function PostDetail() {
 
     setLikeLoading(true);
     try {
-      const method = isLiked ? "DELETE" : "POST";
-      const res = await fetch(`/api/posts/${post.id}/likes`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: 1, // TODO: 실제 로그인한 유저 ID로 교체
-        }),
+      // 백엔드는 POST로 토글 (이미 좋아요가 있으면 취소, 없으면 추가)
+      const res = await apiJson(`/api/posts/${post.id}/likes`, {
+        method: "POST",
       });
-
-      const json = await res.json();
-      if (!json.success) {
-        throw new Error(json.message || "좋아요 처리에 실패했습니다.");
+      // 백엔드 응답 형식: { success: true, data: { likeCount, isLiked } }
+      if (res.success && res.data) {
+        setLikeCount(res.data.likeCount ?? likeCount);
+        setIsLiked(res.data.isLiked ?? isLiked);
       }
-
-      const nextCount = json.data?.likeCount ?? likeCount;
-      setLikeCount(nextCount);
-      setIsLiked(!isLiked);
     } catch (error) {
-      console.error(error);
+      console.error("좋아요 처리 실패:", error);
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  // 댓글 목록 다시 불러오기
+  const fetchComments = async () => {
+    try {
+      const commentData = await getComments(id);
+      setComments(commentData || []);
+    } catch (e) {
+      console.error("댓글 로딩 실패:", e);
+    }
+  };
+
+  // ---------- Reply handling ----------
+  const handleSubmitReply = async () => {
+    if (!replyTargetId || !replyContent.trim()) return;
+    setReplyLoading(true);
+    try {
+      await createReply(id, replyTargetId, replyContent.trim());
+      await fetchComments(); // 재요청하여 목록 갱신
+      setReplyContent("");
+      setReplyTargetId(null);
+    } catch (e) {
+      console.error("답글 등록 실패:", e);
+      alert("답글을 등록하지 못했습니다.");
+    } finally {
+      setReplyLoading(false);
     }
   };
 
@@ -223,7 +507,7 @@ export default function PostDetail() {
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link
               to="/"
@@ -241,6 +525,16 @@ export default function PostDetail() {
               </span>
             </Link>
             <div className="flex items-center gap-2">
+              {/* 본인 게시글만 수정 버튼 표시 */}
+              {post && currentUserId && post.authorId === currentUserId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/post/${id}/edit`)}
+                >
+                  수정
+                </Button>
+              )}
               <Link to="/profile">
                 <Button variant="ghost" size="sm">
                   프로필
@@ -251,7 +545,7 @@ export default function PostDetail() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto px-4 py-8">
         {/* 게시글 헤더 */}
         <article>
           {/* 메인 이미지 */}
@@ -269,13 +563,17 @@ export default function PostDetail() {
               {post.title}
             </h1>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-6 border-b border-border">
+            <div className="flex flex-row items-center gap-4 mb-6 pb-6 border-b border-border">
               {/* 작가 정보 */}
               <div className="flex items-center gap-3">
                 <img
-                  src={post.authorAvatar || "/placeholder.svg"}
+                  src={post.authorAvatar || "/user-profile-avatar.png"}
                   alt={post.author}
                   className="w-12 h-12 rounded-full bg-secondary"
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 기본 이미지로 대체
+                    e.target.src = "/user-profile-avatar.png";
+                  }}
                 />
                 <div>
                   <p className="font-semibold text-foreground">{post.author}</p>
@@ -349,6 +647,33 @@ export default function PostDetail() {
             </div>
           </div>
 
+          {/* 여행 사진 갤러리 */}
+          {postImages.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-4">
+                여행 사진 ({postImages.length})
+              </h2>
+              <div className="grid grid-cols-3 gap-4">
+                {postImages.map((imageUrl, index) => (
+                  <div
+                    key={index}
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-secondary group cursor-pointer"
+                    onClick={() => {
+                      // 이미지 클릭 시 확대 보기 (간단한 alert 대신 모달 구현 가능)
+                      window.open(imageUrl, "_blank");
+                    }}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`여행 사진 ${index + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 상호작용 버튼 */}
           <div className="border-y border-border py-6 mb-8">
             <div className="flex items-center gap-4">
@@ -374,23 +699,65 @@ export default function PostDetail() {
                 <MessageCircle className="w-5 h-5" />
                 <span>{post.comments}</span>
               </Button>
-              <Button variant="ghost" className="ml-auto">
-                <Share2 className="w-5 h-5" />
-              </Button>
+              <div className="relative ml-auto" ref={shareMenuRef}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className="relative"
+                >
+                  <Share2 className="w-5 h-5" />
+                </Button>
+                {showShareMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                    <button
+                      onClick={handleCopyUrl}
+                      className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                    >
+                      📋 URL 복사
+                    </button>
+                    <div className="border-t border-border">
+                      <button
+                        onClick={() => handleShareSNS("kakao")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        💬 카카오톡
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("facebook")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        📘 Facebook
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("twitter")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        🌑 X
+                      </button>
+                      <button
+                        onClick={() => handleShareSNS("link")}
+                        className="w-full px-4 py-3 text-left hover:bg-secondary transition-colors text-sm text-foreground"
+                      >
+                        🔗 링크 공유
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* 댓글 섹션 */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">
-              댓글 ({post.comments || (post.commentsList?.length ?? 0)})
+              댓글 ({comments.length})
             </h2>
 
             {/* 댓글 입력 */}
             <Card className="p-4 mb-6 border-border/50">
               <div className="flex gap-3">
                 <img
-                  src="/user-profile-avatar.png"
+                  src={currentUserProfileImage || "/user-profile-avatar.png"}
                   alt="프로필"
                   className="w-10 h-10 rounded-full bg-secondary"
                 />
@@ -399,9 +766,31 @@ export default function PostDetail() {
                     placeholder="댓글을 작성해주세요..."
                     className="w-full bg-secondary/50 text-foreground placeholder-muted-foreground rounded-lg px-4 py-3 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
                     rows={3}
+                    value={commentContent}
+                    onChange={(e) => setCommentContent(e.target.value)}
                   />
                   <div className="flex justify-end mt-2">
-                    <Button className="bg-primary hover:bg-primary/90">
+                    <Button
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={async () => {
+                        if (!commentContent.trim()) return;
+                        setCommentLoading(true);
+                        try {
+                          const newComment = await createComment(
+                            id,
+                            commentContent.trim()
+                          );
+                          setComments((prev) => [...prev, newComment]);
+                          setCommentContent("");
+                        } catch (e) {
+                          console.error("댓글 등록 실패:", e);
+                          alert("댓글을 등록하지 못했습니다.");
+                        } finally {
+                          setCommentLoading(false);
+                        }
+                      }}
+                      disabled={commentLoading}
+                    >
                       댓글 등록
                     </Button>
                   </div>
@@ -411,39 +800,18 @@ export default function PostDetail() {
 
             {/* 댓글 목록 */}
             <div className="space-y-4">
-              {(post.commentsList || []).length > 0 ? (
-                (post.commentsList || []).map((comment) => (
-                  <Card key={comment.id} className="p-4 border-border/50">
-                    <div className="flex gap-3">
-                      <img
-                        src={comment.avatar || "/placeholder.svg"}
-                        alt={comment.author}
-                        className="w-10 h-10 rounded-full bg-secondary"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-semibold text-foreground">
-                            {comment.author}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {comment.date}
-                          </p>
-                        </div>
-                        <p className="text-foreground mb-2">
-                          {comment.content}
-                        </p>
-                        <div className="flex items-center gap-4">
-                          <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
-                            <Heart className="w-4 h-4" />
-                            <span>{comment.likes}</span>
-                          </button>
-                          <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                            답글달기
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
+              {comments.length > 0 ? (
+                comments.map((comment) => (
+                  <CommentItem
+                    key={comment.id}
+                    comment={comment}
+                    replyTargetId={replyTargetId}
+                    setReplyTargetId={setReplyTargetId}
+                    setReplyContent={setReplyContent}
+                    replyContent={replyContent}
+                    handleSubmitReply={handleSubmitReply}
+                    replyLoading={replyLoading}
+                  />
                 ))
               ) : (
                 <div className="text-center py-8">
@@ -461,7 +829,7 @@ export default function PostDetail() {
             <h2 className="text-2xl font-bold text-foreground mb-6">
               다른 여행기
             </h2>
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-2">
               {recommendations.map((recPost) => (
                 <Link key={recPost.id} to={`/post/${recPost.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50 h-full">
@@ -495,20 +863,26 @@ export default function PostDetail() {
 
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
-        <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-4 gap-8 mb-8">
             <div>
-              <h4 className="font-bold text-foreground mb-4">여기저기</h4>
+              <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/about"
+                    className="hover:text-primary transition-colors"
+                  >
                     소개
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/notice"
+                    className="hover:text-primary transition-colors"
+                  >
                     공지사항
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -516,14 +890,20 @@ export default function PostDetail() {
               <h4 className="font-bold text-foreground mb-4">기능</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/write"
+                    className="hover:text-primary transition-colors"
+                  >
                     여행기 작성
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/checklist"
+                    className="hover:text-primary transition-colors"
+                  >
                     여행 계획
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -531,14 +911,20 @@ export default function PostDetail() {
               <h4 className="font-bold text-foreground mb-4">정보</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/terms"
+                    className="hover:text-primary transition-colors"
+                  >
                     이용약관
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <Link
+                    to="/privacy"
+                    className="hover:text-primary transition-colors"
+                  >
                     개인정보
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -546,12 +932,22 @@ export default function PostDetail() {
               <h4 className="font-bold text-foreground mb-4">팔로우</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <a
+                    href="https://www.instagram.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
                     Instagram
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors">
+                  <a
+                    href="https://twitter.com/yogizogi_official"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
                     Twitter
                   </a>
                 </li>

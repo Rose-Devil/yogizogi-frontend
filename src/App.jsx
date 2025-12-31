@@ -12,6 +12,10 @@ import ChecklistCreate from "./pages/ChecklistCreate";
 import ChecklistDetail from "./pages/ChecklistDetail";
 import ForgotPassword from "./pages/ForgotPassword";
 import ProfileEdit from "./pages/ProfileEdit";
+import About from "./pages/About";
+import Notice from "./pages/Notice";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 import AdBanner from "./components/Adbanner";
 
 function App() {
@@ -23,6 +27,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/write" element={<Write />} />
+        <Route path="/post/:id/edit" element={<Write />} />
         <Route path="/map" element={<Map />} />
         <Route path="/post/:id" element={<PostDetail />} />
         <Route path="/profile" element={<Profile />} />
@@ -31,6 +36,10 @@ function App() {
         <Route path="/checklist/create" element={<ChecklistCreate />} />
         <Route path="/checklist/:id" element={<ChecklistDetail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/notice" element={<Notice />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
       </Routes>
     </ThemeProvider>
   );

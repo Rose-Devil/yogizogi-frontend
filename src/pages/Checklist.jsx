@@ -4,40 +4,71 @@ import { Card } from "@/components/ui/card";
 import { Plus, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
+import { getChecklists } from "@/api/checklists";
 
 const notoSansKR = "Noto Sans KR";
 
 export default function ChecklistPage() {
   const navigate = useNavigate();
-  // 백엔드 필드(체크리스트 목록): id, title, description, members, itemCount, createdAt (추후 ownerId 포함 가능)
   const [checklists, setChecklists] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { isAuthed, logout } = useAuthStatus();
 
   useEffect(() => {
+    if (!isAuthed) {
+      navigate("/login");
+      return;
+    }
+
+    let ignore = false;
+
     const fetchChecklists = async () => {
       setLoading(true);
+      setError("");
       try {
-        const res = await fetch("/api/checklists");
-        if (res.ok) {
-          const data = await res.json();
+        const data = await getChecklists();
+        if (!ignore) {
           setChecklists(data.items || []);
-        } else {
-          setChecklists([]);
         }
       } catch (err) {
         console.error("Failed to load checklists", err);
-        setChecklists([]);
+        if (!ignore) {
+          if (err?.status === 401) {
+            navigate("/login");
+            return;
+          }
+          setError(
+            err instanceof Error
+              ? err.message
+              : "체크리스트를 불러오지 못했습니다."
+          );
+          setChecklists([]);
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+        }
       }
     };
 
     fetchChecklists();
-  }, []);
+
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthed, navigate]);
 
   const handleCreateNewChecklist = () => {
     navigate("/checklist/create");
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString("ko-KR");
   };
 
   return (
@@ -52,7 +83,7 @@ export default function ChecklistPage() {
             >
               <img
                 src="/logo.png"
-                alt="여기저기"
+                alt="요기조기"
                 className="w-10 h-10 rounded-lg flex-shrink-0"
               />
               <span
@@ -63,7 +94,7 @@ export default function ChecklistPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                여기저기
+                요기조기
               </span>
             </Link>
 
@@ -122,18 +153,24 @@ export default function ChecklistPage() {
             className="text-3xl font-black text-foreground mb-2"
             style={{ fontFamily: notoSansKR }}
           >
-            공용 짐 체크리스트
+            공용 체크리스트
           </h1>
           <p className="text-muted-foreground">
-            여행 팀과 함께 짐을 준비하세요. 실시간으로 중복을 방지하고 누락을
-            줄일 수 있습니다.
+            여행 일정과 준비물을 함께 관리하세요. 즉시 공유하고 반복 준비의
+            수고를 덜어줄게요.
           </p>
         </div>
+
+        {error && (
+          <Card className="p-4 mb-6 border-destructive/50 text-destructive bg-destructive/5">
+            {error}
+          </Card>
+        )}
 
         {/* 체크리스트 목록 */}
         {loading && (
           <Card className="p-12 text-center border-border/50 text-muted-foreground">
-            체크리스트를 불러오는 중...
+            체크리스트를 불러오는 중입니다..
           </Card>
         )}
         {!loading && checklists.length > 0 ? (
@@ -154,9 +191,9 @@ export default function ChecklistPage() {
 
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-center justify-between">
-                      <span>팀 멤버</span>
+                      <span>총 멤버</span>
                       <span className="font-medium text-foreground">
-                        {checklist.members}명
+                        {checklist.members ?? 0}명
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -168,7 +205,7 @@ export default function ChecklistPage() {
                     <div className="flex items-center justify-between">
                       <span>생성일</span>
                       <span className="font-medium text-foreground">
-                        {checklist.createdAt}
+                        {formatDate(checklist.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -192,35 +229,38 @@ export default function ChecklistPage() {
             ))}
           </div>
         ) : (
-          <Card className="p-12 text-center border-border/50">
-            <div className="mb-4">
-              <svg
-                className="w-12 h-12 mx-auto text-muted-foreground"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          !loading && (
+            <Card className="p-12 text-center border-border/50">
+              <div className="mb-4">
+                <svg
+                  className="w-12 h-12 mx-auto text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">
+                아직 체크리스트가 없습니다
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                새로운 체크리스트를 만들어 준비물을 채워보세요
+              </p>
+              <Button
+                onClick={handleCreateNewChecklist}
+                className="bg-primary hover:bg-primary/90"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-foreground mb-2">
-              아직 체크리스트가 없습니다
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              새로운 체크리스트를 만들어 팀원들과 함께 준비하세요
-            </p>
-            <Button
-              onClick={handleCreateNewChecklist}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <Plus className="w-5 h-5 mr-2" />첫 번째 체크리스트 만들기
-            </Button>
-          </Card>
+                <Plus className="w-5 h-5 mr-2" />
+                첫번째 체크리스트 만들기
+              </Button>
+            </Card>
+          )
         )}
       </main>
     </div>

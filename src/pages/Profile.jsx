@@ -1,54 +1,62 @@
-import { Link } from "react-router-dom"
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Heart, MessageCircle, MapPin, Edit2, Settings, MoreVertical } from "lucide-react"
-import { apiJson } from "@/api/client"
+import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Edit2,
+  Settings,
+  MapPin,
+  Eye,
+  FileText,
+  TrendingUp,
+} from "lucide-react";
+import { apiJson } from "@/api/client";
 
-const notoSansKR = "Noto Sans KR"
+const notoSansKR = "Noto Sans KR";
 
 export default function ProfilePage() {
-  const [userProfile, setUserProfile] = useState(null)
-  const [myTrips, setMyTrips] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [userProfile, setUserProfile] = useState(null);
+  const [stats, setStats] = useState({ postCount: 0, totalViews: 0 });
+  const [myTrips, setMyTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true)
+    const fetchProfileData = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
-        try {
-          const data = await apiJson("/api/auth/me")
-          setUserProfile({
-            nickname: data.user?.nickname || "",
-            bio: data.user?.bio || "",
-            followers: data.user?.followers ?? 0,
-            following: data.user?.following ?? 0,
-            trips: data.user?.trips ?? 0,
-            joinDate: data.user?.joinDate || "",
-            image: data.user?.image || "/user-profile-avatar.png",
-          })
-        } catch {
-          setUserProfile(null)
-        }
+        // /api/auth/me 한 번만 호출해서 모든 데이터 받기
+        const data = await apiJson("/api/auth/me");
 
-        try {
-          const posts = await apiJson("/api/posts?limit=6")
-          const list = Array.isArray(posts) ? posts : posts.items || []
-          setMyTrips(list)
-        } catch {
-          setMyTrips([])
-        }
+        // 사용자 프로필 설정
+        setUserProfile({
+          nickname: data.user?.nickname || "사용자",
+          bio: data.user?.bio || "소개 정보가 없습니다.",
+          profileImage:
+            data.user?.image || data.user?.url || "/user-profile-avatar.png",
+          joinDate: data.user?.joinDate || "",
+        });
+
+        // 통계 설정
+        setStats({
+          postCount: data.stats?.postCount || 0,
+          totalViews: data.stats?.totalViews || 0,
+        });
+
+        // 여행기 목록 설정
+        setMyTrips(data.trips || []);
       } catch (err) {
-        console.error("Failed to load profile", err)
-        setUserProfile(null)
-        setMyTrips([])
+        console.error("프로필 데이터 로드 실패:", err);
+        setError("프로필 정보를 불러오는데 실패했습니다.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchProfile()
-  }, [])
+    fetchProfileData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,22 +66,34 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between">
             <Link to="/">
               <div className="flex items-center gap-3 cursor-pointer hover:opacity-70 transition-opacity">
-                <img src="/logo.png" alt="여기저기" className="w-10 h-10 rounded-lg flex-shrink-0" />
+                <img
+                  src="/logo.png"
+                  alt="요기조기"
+                  className="w-10 h-10 rounded-lg flex-shrink-0"
+                />
                 <span
                   className="text-xl font-[900] text-foreground hidden sm:inline"
-                  style={{ fontFamily: notoSansKR, transform: "translate(-7px, 1.5px)" }}
+                  style={{
+                    fontFamily: notoSansKR,
+                    transform: "translate(-7px, 1.5px)",
+                  }}
                 >
-                  여기저기
+                  요기조기
                 </span>
               </div>
             </Link>
 
-            {/* 우측 버튼 */}
             <div className="flex items-center gap-2 sm:gap-4">
               <Link to="/write">
-                <Button className="bg-primary hover:bg-primary/90">여행기 작성</Button>
+                <Button className="bg-primary hover:bg-primary/90">
+                  여행기 작성
+                </Button>
               </Link>
-              <Button variant="ghost" size="icon" className="hover:bg-secondary">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hover:bg-secondary"
+              >
                 <Settings className="w-5 h-5" />
               </Button>
             </div>
@@ -88,7 +108,7 @@ export default function ProfilePage() {
             {/* 프로필 이미지 */}
             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
               <img
-                src={userProfile?.image || "/placeholder.svg"}
+                src={userProfile?.profileImage || "/placeholder.svg"}
                 alt={userProfile?.nickname || "프로필"}
                 className="w-full h-full object-cover"
               />
@@ -97,103 +117,138 @@ export default function ProfilePage() {
             {/* 프로필 정보 */}
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-4">
-                <h1 className="text-3xl font-bold text-foreground">{userProfile?.nickname || "사용자"}</h1>
+                <h1 className="text-3xl font-bold text-foreground">
+                  {userProfile?.nickname || "사용자"}
+                </h1>
                 <Link to="/profile/edit">
-                  <Button variant="outline" className="gap-2 bg-transparent" size="sm">
+                  <Button
+                    variant="outline"
+                    className="gap-2 bg-transparent"
+                    size="sm"
+                  >
                     <Edit2 className="w-4 h-4" />
                     편집
                   </Button>
                 </Link>
               </div>
 
-              <p className="text-muted-foreground mb-6 max-w-2xl">{userProfile?.bio || "소개 정보가 없습니다."}</p>
+              <p className="text-muted-foreground mb-6 max-w-2xl">
+                {userProfile?.bio}
+              </p>
 
-              {/* 통계 */}
-              <div className="flex gap-8 mb-6">
-                <div>
-                  <div className="text-2xl font-bold text-primary">{userProfile?.trips ?? 0}</div>
-                  <div className="text-sm text-muted-foreground">여행기</div>
+              {/* 통계 카드 */}
+              <div className="flex gap-4 mb-6">
+                <div className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                    <FileText className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">
+                      {stats.postCount}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      작성한 여행기
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-primary">{(userProfile?.followers ?? 0).toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground">팔로워</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-primary">{userProfile?.following ?? 0}</div>
-                  <div className="text-sm text-muted-foreground">팔로우 중</div>
+
+                <div className="flex items-center gap-3 bg-secondary/50 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">
+                      {stats.totalViews.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      총 조회수
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">{userProfile?.joinDate || ""}</p>
+              <p className="text-xs text-muted-foreground">
+                가입일: {userProfile?.joinDate}
+              </p>
             </div>
           </div>
         </Card>
 
         {/* 탭 */}
         <div className="flex gap-4 border-b border-border mb-8">
-          <button className="px-4 py-4 font-medium text-primary border-b-2 border-primary">내 여행기</button>
-          <button className="px-4 py-4 font-medium text-muted-foreground hover:text-foreground transition-colors">
-            좋아한 여행기
-          </button>
-          <button className="px-4 py-4 font-medium text-muted-foreground hover:text-foreground transition-colors">
-            댓글
+          <button className="px-4 py-4 font-medium text-primary border-b-2 border-primary">
+            내 여행기
           </button>
         </div>
 
-        {/* 여행기 그리드 */}
-        {loading && <Card className="p-6 text-muted-foreground border-border/50">프로필 정보를 불러오는 중...</Card>}
-        {!loading && myTrips.length === 0 && (
-          <Card className="p-6 text-muted-foreground border-border/50">등록된 여행기가 없습니다.</Card>
+        {/* 여행기 리스트 */}
+        {loading && (
+          <Card className="p-6 text-center text-muted-foreground border-border/50">
+            프로필 정보를 불러오는 중...
+          </Card>
         )}
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {myTrips.map((trip) => (
-            <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-shadow border-border/50 group">
-              {/* 이미지 */}
-              <div className="relative h-48 overflow-hidden bg-secondary">
-                <img
-                  src={trip.image || "/placeholder.svg"}
-                  alt={trip.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <button className="absolute top-2 right-2 p-2 bg-white/90 rounded-full hover:bg-white transition-colors">
-                  <MoreVertical className="w-4 h-4 text-foreground" />
-                </button>
-              </div>
 
-              {/* 콘텐츠 */}
-              <div className="p-4">
-                <h3 className="font-bold text-foreground line-clamp-2 mb-2">{trip.title}</h3>
+        {error && (
+          <Card className="p-6 text-center text-red-500 border-border/50">
+            {error}
+          </Card>
+        )}
 
-                <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
-                  <MapPin className="w-4 h-4" />
-                  <span>{trip.location}</span>
-                </div>
+        {!loading && !error && myTrips.length === 0 && (
+          <Card className="p-6 text-center text-muted-foreground border-border/50">
+            등록된 여행기가 없습니다.
+          </Card>
+        )}
 
-                <div className="flex gap-1 mb-4 flex-wrap">
-                  {(trip.tags || []).map((tag, idx) => (
-                    <span key={idx} className="text-xs bg-secondary text-primary px-2 py-1 rounded-full">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+        {!loading && !error && myTrips.length > 0 && (
+          <div className="space-y-4">
+            {myTrips.map((trip) => (
+              <Link to={`/post/${trip.id}`} key={trip.id}>
+                <Card className="p-6 hover:shadow-lg transition-shadow border-border/50 cursor-pointer">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* 썸네일 이미지 */}
+                    {trip.thumbnail && (
+                      <div className="w-full sm:w-32 h-32 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
+                        <img
+                          src={trip.thumbnail}
+                          alt={trip.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground border-t border-border/50 pt-3">
-                  <div className="flex items-center gap-1">
-                    <Heart className="w-4 h-4" />
-                    <span>{trip.likes}</span>
+                    {/* 여행기 정보 */}
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-foreground mb-3">
+                        {trip.title}
+                      </h3>
+
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        {/* 지역 */}
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          <span>{trip.location || "위치 미지정"}</span>
+                        </div>
+
+                        {/* 조회수 */}
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-4 h-4" />
+                          <span>{trip.views?.toLocaleString() || 0}회</span>
+                        </div>
+
+                        {/* 작성일 */}
+                        <div className="flex items-center gap-1">
+                          <span>{trip.createdAt}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <MessageCircle className="w-4 h-4" />
-                    <span>{trip.comments}</span>
-                  </div>
-                  <span className="text-xs">{trip.date}</span>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </main>
     </div>
-  )
+  );
 }
-

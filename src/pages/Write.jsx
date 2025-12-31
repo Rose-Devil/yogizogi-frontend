@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, ImageIcon, Trash2, Save } from "lucide-react";
+import {
+  MapPin,
+  Calendar,
+  ImageIcon,
+  Trash2,
+  Save,
+  Sparkles,
+} from "lucide-react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
 import { apiJson } from "@/api/client";
 import { DayPicker } from "react-day-picker";
@@ -34,6 +41,7 @@ export default function WritePage() {
   const [thumbnailFile, setThumbnailFile] = useState(null); // File 객체 저장
   const [imagePreviews, setImagePreviews] = useState([]);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
+  const [converting, setConverting] = useState(false); // MZ 변환 로딩 상태
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedRange, setSelectedRange] = useState({ from: null, to: null });
   const calendarRef = useRef(null);
@@ -315,6 +323,34 @@ export default function WritePage() {
     }
   };
 
+  const handleMzConvert = async () => {
+    if (!content) {
+      setError("변환할 내용을 입력해주세요.");
+      return;
+    }
+
+    setConverting(true);
+    setError("");
+
+    try {
+      const res = await apiJson("/api/ai/mz-convert", {
+        method: "POST",
+        body: JSON.stringify({ text: content }),
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || "MZ 스타일 변환에 실패했습니다.");
+      }
+
+      setContent(res.data.converted);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "MZ 스타일 변환 중 오류가 발생했습니다.");
+    } finally {
+      setConverting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
@@ -591,9 +627,22 @@ export default function WritePage() {
 
             {/* 본문 */}
             <div className="mb-8">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                여행기 내용
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-foreground">
+                  여행기 내용
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-primary border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  onClick={handleMzConvert}
+                  disabled={converting || !content}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {converting ? "변환 중..." : "MZ 스타일로 변환"}
+                </Button>
+              </div>
               <textarea
                 placeholder="당신의 여행 이야기를 자유롭게 작성해주세요..."
                 className="w-full px-4 py-4 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"

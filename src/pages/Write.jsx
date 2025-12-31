@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Calendar, ImageIcon, Trash2, Save } from "lucide-react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
 import { apiJson } from "@/api/client";
+import { me } from "@/api/auth";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -45,12 +46,30 @@ export default function WritePage() {
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [kakaoReady, setKakaoReady] = useState(false);
   const [placeSearchError, setPlaceSearchError] = useState("");
+  const [currentUserId, setCurrentUserId] = useState(null);
 
-  // 인증 체크
+  // 인증 체크 및 현재 사용자 ID 가져오기
   useEffect(() => {
     if (!isAuthed) {
       navigate("/login");
+      return;
     }
+
+    // 현재 사용자 ID 가져오기
+    async function loadCurrentUser() {
+      try {
+        const userData = await me();
+        const userId =
+          userData?.user?.id || userData?.data?.id || userData?.data?.user?.id;
+        if (userId) {
+          setCurrentUserId(userId);
+        }
+      } catch (error) {
+        console.error("사용자 정보 로딩 실패:", error);
+      }
+    }
+
+    loadCurrentUser();
   }, [isAuthed, navigate]);
 
   // 수정 모드일 때 기존 게시글 데이터 불러오기
@@ -66,6 +85,22 @@ export default function WritePage() {
           }
 
           const post = res.data;
+
+          // 작성자 확인 (수정 모드일 때만)
+          if (isEditMode) {
+            // 현재 사용자 ID 가져오기
+            const userData = await me();
+            const userId =
+              userData?.user?.id ||
+              userData?.data?.id ||
+              userData?.data?.user?.id;
+
+            if (userId && post.author_id !== userId) {
+              alert("본인의 게시글만 수정할 수 있습니다.");
+              navigate(`/post/${id}`);
+              return;
+            }
+          }
 
           // 폼 데이터 설정
           setTitle(post.title || "");

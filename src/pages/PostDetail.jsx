@@ -525,8 +525,8 @@ export default function PostDetail() {
               </span>
             </Link>
             <div className="flex items-center gap-2">
-              {/* 임시: 모든 게시글에 수정 버튼 표시 (나중에 조건 추가) */}
-              {post && (
+              {/* 본인 게시글만 수정 버튼 표시 */}
+              {post && currentUserId && post.authorId === currentUserId && (
                 <Button
                   variant="outline"
                   size="sm"

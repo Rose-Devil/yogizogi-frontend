@@ -28,6 +28,14 @@ const CommentItem = ({
   replyLoading,
 }) => {
   const isReplying = replyTargetId === comment.id;
+  const navigate = useNavigate();
+  const authorId = comment.author_id || comment.author?.id;
+
+  const handleProfileClick = () => {
+    if (authorId && !comment.is_ai) {
+      navigate(`/profile/${authorId}`);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -36,7 +44,12 @@ const CommentItem = ({
           <img
             src={comment.author?.profile_image || "/user-profile-avatar.png"}
             alt={comment.author?.nickname || comment.author || "작성자"}
-            className="w-10 h-10 rounded-full bg-secondary"
+            className={`w-10 h-10 rounded-full bg-secondary ${
+              authorId && !comment.is_ai
+                ? "cursor-pointer hover:opacity-80 transition-opacity"
+                : ""
+            }`}
+            onClick={handleProfileClick}
           />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">

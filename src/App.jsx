@@ -31,6 +31,7 @@ function App() {
         <Route path="/map" element={<Map />} />
         <Route path="/post/:id" element={<PostDetail />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/:userId" element={<Profile />} />
         <Route path="/profile/edit" element={<ProfileEdit />} />
         <Route path="/checklist" element={<Checklist />} />
         <Route path="/checklist/create" element={<ChecklistCreate />} />

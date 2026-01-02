@@ -3,13 +3,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Check, MapPin, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Copy, MapPin, Plus, Trash2 } from "lucide-react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
 import {
   addChecklistItem,
   addChecklistLocation,
   clearChecklistLocations,
   getChecklistDetail,
+  updateChecklist,
   removeChecklistItem,
   removeChecklistLocation,
   reorderChecklistLocations,
@@ -20,6 +21,8 @@ import { ensureSocketConnected } from "@/lib/socket";
 const notoSansKR = "Noto Sans KR";
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 const KAKAO_SCRIPT_ID = "kakao-map-sdk";
+const UNSCHEDULED_KEY = "__UNSCHEDULED__";
+const UNSCHEDULED_LABEL = "미정";
 
 function toDateString(value) {
   if (!value) return "";
@@ -48,7 +51,7 @@ function* dateRange(start, end) {
 function groupByTripDate(locations) {
   const groups = new Map();
   locations.forEach((loc) => {
-    const key = loc.tripDate || "미지정";
+    const key = loc.tripDate || UNSCHEDULED_KEY;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(loc);
   });
@@ -91,6 +94,7 @@ export default function ChecklistDetailPage() {
   const [tripStartDate, setTripStartDate] = useState("");
   const [tripEndDate, setTripEndDate] = useState("");
   const [selectedTripDate, setSelectedTripDate] = useState("");
+  const [savingTripDates, setSavingTripDates] = useState(false);
 
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState([]);
@@ -102,7 +106,7 @@ export default function ChecklistDetailPage() {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const overlaysRef = useRef([]);
-  const polylineRef = useRef(null);
+  const polylinesRef = useRef([]);
 
   const [dragging, setDragging] = useState(null); // { tripDateKey, id }
 
@@ -141,8 +145,12 @@ export default function ChecklistDetailPage() {
 
   const locationNumberMap = useMemo(() => {
     const map = new Map();
-    normalizedLocations.forEach((loc, idx) => {
-      map.set(loc.id, idx + 1);
+    const counters = new Map();
+    normalizedLocations.forEach((loc) => {
+      const key = loc.tripDate || UNSCHEDULED_KEY;
+      const next = (counters.get(key) || 0) + 1;
+      counters.set(key, next);
+      map.set(loc.id, next);
     });
     return map;
   }, [normalizedLocations]);
@@ -157,6 +165,8 @@ export default function ChecklistDetailPage() {
       setItems(data.items || []);
       setMembers(data.members || []);
       setLocations(data.locations || []);
+      setTripStartDate(toDateString(data.checklist?.startDate) || "");
+      setTripEndDate(toDateString(data.checklist?.endDate) || "");
     } catch (err) {
       if (err?.status === 401) {
         navigate("/login");
@@ -167,6 +177,8 @@ export default function ChecklistDetailPage() {
       setItems([]);
       setMembers([]);
       setLocations([]);
+      setTripStartDate("");
+      setTripEndDate("");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -317,8 +329,8 @@ export default function ChecklistDetailPage() {
     markersRef.current = [];
     overlaysRef.current.forEach((o) => o.setMap(null));
     overlaysRef.current = [];
-    if (polylineRef.current) polylineRef.current.setMap(null);
-    polylineRef.current = null;
+    polylinesRef.current.forEach((p) => p.setMap(null));
+    polylinesRef.current = [];
     mapRef.current = null;
   }, [tab]);
 
@@ -331,22 +343,19 @@ export default function ChecklistDetailPage() {
     markersRef.current = [];
     overlaysRef.current.forEach((o) => o.setMap(null));
     overlaysRef.current = [];
-    if (polylineRef.current) polylineRef.current.setMap(null);
-    polylineRef.current = null;
+    polylinesRef.current.forEach((p) => p.setMap(null));
+    polylinesRef.current = [];
 
-    const path = [];
+    const pathsByDate = new Map();
 
     normalizedLocations.forEach((loc) => {
       const latlng = new window.kakao.maps.LatLng(loc.lat, loc.lng);
-      const marker = new window.kakao.maps.Marker({
-        map: mapRef.current,
-        position: latlng,
-      });
-      markersRef.current.push(marker);
-      path.push(latlng);
+      const dateKey = loc.tripDate || UNSCHEDULED_KEY;
+      if (!pathsByDate.has(dateKey)) pathsByDate.set(dateKey, []);
+      pathsByDate.get(dateKey).push(latlng);
 
       const idx = locationNumberMap.get(loc.id) || 0;
-      const color = loc.tripDate ? dateColorMap.get(loc.tripDate) : "#64748B";
+      const color = (loc.tripDate && dateColorMap.get(loc.tripDate)) || "#64748B";
       const content = `
         <div style="
           width:24px;height:24px;border-radius:9999px;
@@ -370,19 +379,23 @@ export default function ChecklistDetailPage() {
       overlaysRef.current.push(overlay);
     });
 
-    if (path.length >= 2) {
-      polylineRef.current = new window.kakao.maps.Polyline({
+    pathsByDate.forEach((path, key) => {
+      if (path.length < 2) return;
+      const color = key !== UNSCHEDULED_KEY ? dateColorMap.get(key) : "#64748B";
+      const polyline = new window.kakao.maps.Polyline({
         map: mapRef.current,
         path,
         strokeWeight: 3,
-        strokeColor: "#0F172A",
-        strokeOpacity: 0.35,
+        strokeColor: color,
+        strokeOpacity: 0.7,
         strokeStyle: "solid",
       });
-    }
+      polylinesRef.current.push(polyline);
+    });
 
-    if (path.length >= 1) {
-      mapRef.current.setCenter(path[0]);
+    const firstLoc = normalizedLocations[0];
+    if (firstLoc) {
+      mapRef.current.setCenter(new window.kakao.maps.LatLng(firstLoc.lat, firstLoc.lng));
     }
   }, [tab, kakaoReady, normalizedLocations, locationNumberMap, dateColorMap]);
 
@@ -393,6 +406,27 @@ export default function ChecklistDetailPage() {
       return null;
     }
     return date;
+  };
+
+  const handleSaveTripDates = async () => {
+    if (!tripStartDate || !tripEndDate) {
+      alert("여행 시작일과 종료일을 모두 선택해주세요.");
+      return;
+    }
+    if (tripStartDate > tripEndDate) {
+      alert("시작일이 종료일보다 늦습니다.");
+      return;
+    }
+
+    try {
+      setSavingTripDates(true);
+      await updateChecklist(id, { startDate: tripStartDate, endDate: tripEndDate });
+      fetchDetail({ silent: true });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "여행 날짜 저장에 실패했습니다.");
+    } finally {
+      setSavingTripDates(false);
+    }
   };
 
   const handleAddItem = async () => {
@@ -511,13 +545,38 @@ export default function ChecklistDetailPage() {
   };
 
   const handleDropReorder = async (tripDateKey, nextIds) => {
-    const tripDate = tripDateKey === "미지정" ? null : tripDateKey;
+    const tripDate = tripDateKey === UNSCHEDULED_KEY ? null : tripDateKey;
     try {
       await reorderChecklistLocations(id, { tripDate, orderedIds: nextIds });
       fetchDetail({ silent: true });
     } catch (err) {
       alert(err instanceof Error ? err.message : "순서 저장에 실패했습니다.");
       fetchDetail({ silent: true });
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    const code = checklist?.inviteCode;
+    if (!code) {
+      alert("초대 코드가 없습니다.");
+      return;
+    }
+    const link = `${window.location.origin}/checklist/join/${encodeURIComponent(code)}`;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const dummy = document.createElement("textarea");
+        dummy.value = link;
+        document.body.appendChild(dummy);
+        dummy.select();
+        document.execCommand("copy");
+        document.body.removeChild(dummy);
+      }
+      alert("초대 링크가 복사됐습니다.");
+    } catch (err) {
+      console.error(err);
+      alert("복사에 실패했습니다. 링크: " + link);
     }
   };
 
@@ -544,38 +603,55 @@ export default function ChecklistDetailPage() {
         </div>
 
         <Card className="border-border/50 p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">시작일</div>
-              <Input type="date" value={tripStartDate} onChange={(e) => setTripStartDate(e.target.value)} />
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">시작일</div>
+                <Input type="date" value={tripStartDate} onChange={(e) => setTripStartDate(e.target.value)} />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">종료일</div>
+                <Input
+                  type="date"
+                  value={tripEndDate}
+                  min={tripStartDate || undefined}
+                  onChange={(e) => setTripEndDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">저장할 날짜</div>
+                <select
+                  className="w-full h-10 rounded-md border border-border bg-secondary/20 px-3 text-sm"
+                  value={selectedTripDate}
+                  onChange={(e) => setSelectedTripDate(e.target.value)}
+                  disabled={availableTripDates.length === 0}
+                >
+                  {availableTripDates.length === 0 ? (
+                    <option value="">날짜 범위를 먼저 설정하세요</option>
+                  ) : (
+                    availableTripDates.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">종료일</div>
-              <Input type="date" value={tripEndDate} onChange={(e) => setTripEndDate(e.target.value)} />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">저장할 날짜</div>
-              <select
-                className="w-full h-10 rounded-md border border-border bg-secondary/20 px-3 text-sm"
-                value={selectedTripDate}
-                onChange={(e) => setSelectedTripDate(e.target.value)}
-                disabled={availableTripDates.length === 0}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                지도 더블클릭 → 확인하면 저장됩니다. 검색 결과는 선택 후 “담기”를 눌러 저장됩니다.
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleSaveTripDates}
+                disabled={!tripStartDate || !tripEndDate || tripStartDate > tripEndDate || savingTripDates}
+                className="md:w-auto w-full"
               >
-                {availableTripDates.length === 0 ? (
-                  <option value="">날짜 범위를 먼저 설정하세요</option>
-                ) : (
-                  availableTripDates.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))
-                )}
-              </select>
+                {savingTripDates ? "저장 중..." : "여행 날짜 저장"}
+              </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            지도 더블클릭 → 확인하면 저장됩니다. 검색 결과는 선택 후 “담기”를 눌러 저장됩니다.
-          </p>
         </Card>
 
         {placeError && <p className="text-sm text-destructive mb-3">{placeError}</p>}
@@ -641,8 +717,8 @@ export default function ChecklistDetailPage() {
               <h3 className="font-black text-foreground mb-3">저장된 위치</h3>
               <div className="space-y-4">
                 {grouped.map(([key, group]) => {
-                  const title = key === "미지정" ? "미지정" : key;
-                  const color = key !== "미지정" ? dateColorMap.get(key) : "#64748B";
+                  const title = key === UNSCHEDULED_KEY ? UNSCHEDULED_LABEL : key;
+                  const color = key !== UNSCHEDULED_KEY ? dateColorMap.get(key) : "#64748B";
 
                   return (
                     <div key={key} className="border border-border/50 rounded-md">
@@ -676,7 +752,18 @@ export default function ChecklistDetailPage() {
                             }}
                             className="p-3 rounded border border-border/50 hover:bg-secondary/30"
                           >
-                            <button type="button" className="w-full text-left" onClick={() => handleFocusLocation(loc)}>
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              className="w-full text-left"
+                              onClick={() => handleFocusLocation(loc)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  handleFocusLocation(loc);
+                                }
+                              }}
+                            >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="font-medium text-foreground truncate">
                                   {locationNumberMap.get(loc.id)}. {loc.name}
@@ -696,7 +783,7 @@ export default function ChecklistDetailPage() {
                               </div>
                               <div className="text-xs text-muted-foreground mt-1">{loc.address || `${loc.lat}, ${loc.lng}`}</div>
                               <div className="text-[10px] text-muted-foreground mt-1">드래그해서 순서 변경</div>
-                            </button>
+                            </div>
                           </div>
                         ))}
                         {group.length === 0 && (
@@ -865,9 +952,21 @@ export default function ChecklistDetailPage() {
 
           <div className="lg:col-span-1">
             <Card className="border-border/50 p-6 sticky top-24">
-              <h3 className="text-lg font-black text-foreground mb-4" style={{ fontFamily: notoSansKR }}>
-                참여 멤버 ({members.length})
-              </h3>
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <h3 className="text-lg font-black text-foreground" style={{ fontFamily: notoSansKR }}>
+                  참여 멤버 ({members.length})
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-transparent"
+                  onClick={handleCopyInviteLink}
+                  disabled={!checklist?.inviteCode}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  초대링크
+                </Button>
+              </div>
               <div className="space-y-3">
                 {members.map((member) => (
                   <div key={member.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">

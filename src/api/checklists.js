@@ -4,10 +4,10 @@ export async function getChecklists() {
   return apiJson("/api/checklists");
 }
 
-export async function createChecklist({ title, description }) {
+export async function createChecklist({ title, description, startDate, endDate }) {
   return apiJson("/api/checklists", {
     method: "POST",
-    body: JSON.stringify({ title, description }),
+    body: JSON.stringify({ title, description, startDate, endDate }),
   });
 }
 
@@ -60,6 +60,13 @@ export async function removeChecklistItem(checklistId, itemId) {
     error.data = data;
     throw error;
   }
+}
+
+export async function updateChecklist(checklistId, { title, description, startDate, endDate }) {
+  return apiJson(`/api/checklists/${checklistId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title, description, startDate, endDate }),
+  });
 }
 
 export async function getChecklistLocations(checklistId) {

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Plus, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
@@ -13,6 +14,7 @@ export default function ChecklistPage() {
   const [checklists, setChecklists] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const { isAuthed, logout } = useAuthStatus();
 
   useEffect(() => {
@@ -61,6 +63,23 @@ export default function ChecklistPage() {
 
   const handleCreateNewChecklist = () => {
     navigate("/checklist/create");
+  };
+
+  const handleJoinByInvite = () => {
+    const code = inviteCode.trim();
+    if (!code) return;
+    navigate(`/checklist/join/${encodeURIComponent(code)}`);
+  };
+
+  const handleCopyInviteLink = async (code) => {
+    if (!code) return;
+    const link = `${window.location.origin}/checklist/join/${code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      alert("초대 링크를 복사했어요.");
+    } catch {
+      prompt("초대 링크를 복사해서 공유하세요:", link);
+    }
   };
 
   const formatDate = (value) => {
@@ -161,6 +180,22 @@ export default function ChecklistPage() {
           </p>
         </div>
 
+        <Card className="p-4 mb-6 border-border/50">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="초대코드 붙여넣기"
+            />
+            <Button onClick={handleJoinByInvite} className="shrink-0">
+              참여하기
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            초대 링크(`.../checklist/join/&lt;inviteCode&gt;`)를 열어도 바로 참여됩니다.
+          </p>
+        </Card>
+
         {error && (
           <Card className="p-4 mb-6 border-destructive/50 text-destructive bg-destructive/5">
             {error}
@@ -217,7 +252,7 @@ export default function ChecklistPage() {
                       className="w-full gap-2 bg-transparent"
                       onClick={(e) => {
                         e.preventDefault();
-                        // 공유 로직
+                        handleCopyInviteLink(checklist.inviteCode);
                       }}
                     >
                       <Share2 className="w-4 h-4" />

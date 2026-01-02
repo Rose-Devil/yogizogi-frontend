@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import Checklist from "./pages/Checklist";
 import ChecklistCreate from "./pages/ChecklistCreate";
 import ChecklistDetail from "./pages/ChecklistDetail";
+import ChecklistJoin from "./pages/ChecklistJoin";
 import ForgotPassword from "./pages/ForgotPassword";
 import ProfileEdit from "./pages/ProfileEdit";
 import About from "./pages/About";
@@ -35,6 +36,7 @@ function App() {
         <Route path="/profile/edit" element={<ProfileEdit />} />
         <Route path="/checklist" element={<Checklist />} />
         <Route path="/checklist/create" element={<ChecklistCreate />} />
+        <Route path="/checklist/join/:inviteCode" element={<ChecklistJoin />} />
         <Route path="/checklist/:id" element={<ChecklistDetail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/about" element={<About />} />

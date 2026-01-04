@@ -20,6 +20,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 실제 백엔드에서 불러올 게시글 목록
   const [posts, setPosts] = useState([]);
@@ -39,6 +40,16 @@ export default function Home() {
   const { isAuthed, logout } = useAuthStatus();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) {
+      navigate("/search");
+      return;
+    }
+    navigate(`/search?q=${encodeURIComponent(q)}`);
+  };
 
   // 알림 영역 외 클릭 시 닫기
   useEffect(() => {
@@ -410,14 +421,25 @@ export default function Home() {
 
             {/* 검색바 */}
             <div className="flex flex-1 max-w-sm mx-8">
-              <div className="relative w-full">
+              <form className="relative w-full" onSubmit={handleSearchSubmit}>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   type="text"
                   placeholder="여행지, 태그 검색..."
-                  className="w-full pl-10 pr-4 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full pl-10 pr-12 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
-              </div>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  aria-label="검색"
+                >
+                  <Search className="w-5 h-5" />
+                </Button>
+              </form>
             </div>
 
             {/* 우측 버튼 */}

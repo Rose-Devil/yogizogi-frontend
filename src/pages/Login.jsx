@@ -121,21 +121,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="my-6 flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">또는</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <div className="space-y-3">
-            <button className="w-full py-3 rounded-lg border border-border bg-card hover:bg-secondary transition-colors font-medium text-foreground">
-              Google로 로그인
-            </button>
-            <button className="w-full py-3 rounded-lg border border-border bg-card hover:bg-secondary transition-colors font-medium text-foreground">
-              카카오로 로그인
-            </button>
-          </div>
-
           <div className="mt-8 text-center space-y-3">
             <p className="text-sm text-muted-foreground">
               아직 회원이 아니신가요?{" "}

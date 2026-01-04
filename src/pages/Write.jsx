@@ -55,6 +55,8 @@ export default function WritePage() {
   const [kakaoReady, setKakaoReady] = useState(false);
   const [placeSearchError, setPlaceSearchError] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const saveDraftTimeoutRef = useRef(null);
+  const DRAFT_STORAGE_KEY = "post_draft";
 
   // 인증 체크 및 현재 사용자 ID 가져오기
   useEffect(() => {
@@ -79,6 +81,170 @@ export default function WritePage() {
 
     loadCurrentUser();
   }, [isAuthed, navigate]);
+
+  // base64를 File 객체로 변환
+  const base64ToFile = (base64String, filename, mimeType) => {
+    const byteCharacters = atob(base64String.split(",")[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new File([byteArray], filename, { type: mimeType });
+  };
+
+  // 임시저장 데이터 로드 (수정 모드가 아닐 때만)
+  useEffect(() => {
+    if (!isEditMode && !id) {
+      try {
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (savedDraft) {
+          const draft = JSON.parse(savedDraft);
+          // 사용자에게 복원할지 물어봄
+          const shouldRestore = window.confirm(
+            "이전에 작성하던 내용이 있습니다. 복원하시겠습니까?"
+          );
+          if (shouldRestore) {
+            setTitle(draft.title || "");
+            setContent(draft.content || "");
+            setLocation(draft.location || "");
+            setDateRange(draft.dateRange || "");
+            setTagsInput(draft.tagsInput || "#여행");
+            setAllowComments(draft.allowComments !== undefined ? draft.allowComments : true);
+            
+            // base64 이미지 복원
+            if (draft.imageBase64s && draft.imageBase64s.length > 0) {
+              const restoredFiles = draft.imageBase64s.map((base64, index) => {
+                // base64에서 mime type 추출
+                const mimeMatch = base64.match(/data:([^;]+);/);
+                const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+                return base64ToFile(base64, `image-${index}.jpg`, mimeType);
+              });
+              setImages(restoredFiles);
+            }
+            
+            if (draft.thumbnailBase64) {
+              const mimeMatch = draft.thumbnailBase64.match(/data:([^;]+);/);
+              const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+              const thumbnailFile = base64ToFile(draft.thumbnailBase64, "thumbnail.jpg", mimeType);
+              setThumbnailFile(thumbnailFile);
+            }
+          } else {
+            // 복원하지 않으면 임시저장 삭제
+            localStorage.removeItem(DRAFT_STORAGE_KEY);
+          }
+        }
+      } catch (error) {
+        console.error("임시저장 데이터 로드 실패:", error);
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+    }
+  }, [isEditMode, id]);
+
+  // 임시저장 함수 (File 객체는 base64로 변환)
+  const saveDraft = async () => {
+    if (isEditMode) return; // 수정 모드에서는 임시저장 안 함
+
+    try {
+      // 이미지 파일을 base64로 변환
+      const imageBase64Promises = images
+        .filter((img) => img instanceof File)
+        .map((file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+          });
+        });
+
+      const thumbnailBase64Promise = thumbnailFile
+        ? new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(thumbnailFile);
+          })
+        : Promise.resolve(null);
+
+      const [imageBase64s, thumbnailBase64] = await Promise.all([
+        Promise.all(imageBase64Promises),
+        thumbnailBase64Promise,
+      ]);
+
+      const draft = {
+        title,
+        content,
+        location,
+        dateRange,
+        tagsInput,
+        allowComments,
+        imageBase64s: imageBase64s.filter(Boolean),
+        thumbnailBase64,
+        savedAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.error("임시저장 실패:", error);
+    }
+  };
+
+  // debounce된 임시저장 (1.5초마다)
+  useEffect(() => {
+    if (isEditMode) return; // 수정 모드에서는 임시저장 안 함
+
+    // 기존 타이머 취소
+    if (saveDraftTimeoutRef.current) {
+      clearTimeout(saveDraftTimeoutRef.current);
+    }
+
+    // 내용이 있을 때만 저장
+    if (title || content || location) {
+      saveDraftTimeoutRef.current = setTimeout(() => {
+        saveDraft();
+      }, 1500); // 1.5초 후 저장
+    }
+
+    return () => {
+      if (saveDraftTimeoutRef.current) {
+        clearTimeout(saveDraftTimeoutRef.current);
+      }
+    };
+  }, [title, content, location, dateRange, tagsInput, allowComments, images, thumbnailFile, isEditMode]);
+
+  // 페이지 종료 전 임시저장 (beforeunload)
+  useEffect(() => {
+    if (isEditMode) return;
+
+    const handleBeforeUnload = (e) => {
+      if (title || content || location) {
+        // 동기적으로 저장 (비동기는 작동하지 않으므로 동기 저장)
+        try {
+          const draft = {
+            title,
+            content,
+            location,
+            dateRange,
+            tagsInput,
+            allowComments,
+            // 이미지는 base64 변환이 시간이 걸리므로 저장하지 않음
+            imageBase64s: [],
+            thumbnailBase64: null,
+            savedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+        } catch (error) {
+          console.error("임시저장 실패:", error);
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isEditMode, title, content, location, dateRange, tagsInput, allowComments]);
 
   // 수정 모드일 때 기존 게시글 데이터 불러오기
   useEffect(() => {
@@ -375,6 +541,10 @@ export default function WritePage() {
       }
 
       const post = json.data;
+      
+      // 게시글 작성 성공 시 임시저장 삭제
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      
       if (post && post.id) {
         navigate(`/post/${post.id}`);
       } else {
@@ -382,7 +552,16 @@ export default function WritePage() {
       }
     } catch (e) {
       console.error(e);
-      setError(e.message || "알 수 없는 오류가 발생했습니다.");
+      const errorMessage = e.message || "알 수 없는 오류가 발생했습니다.";
+      
+      // 토큰 만료 에러인 경우 로그인 페이지로 리다이렉트
+      if (errorMessage.includes("로그인") || errorMessage.includes("토큰") || e.status === 401) {
+        alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+        return;
+      }
+      
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }

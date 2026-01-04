@@ -8,6 +8,10 @@ import {
   Clock,
   X,
   Plus,
+  Sparkles,
+  Calendar,
+  Utensils,
+  Lightbulb,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -310,6 +314,28 @@ export default function PostDetail() {
           authorAvatar: authorAvatar,
         });
 
+        // ai_data 확인 및 파싱
+        let parsedAiData = null;
+        if (p.ai_data) {
+          if (typeof p.ai_data === "string") {
+            try {
+              parsedAiData = JSON.parse(p.ai_data);
+            } catch (e) {
+              console.error("AI 데이터 JSON 파싱 실패:", e);
+              parsedAiData = null;
+            }
+          } else {
+            parsedAiData = p.ai_data;
+          }
+        }
+
+        console.log("AI 데이터 확인:", {
+          원본: p.ai_data,
+          원본타입: typeof p.ai_data,
+          파싱된데이터: parsedAiData,
+          is_travel: parsedAiData?.is_travel,
+        });
+
         setPost({
           id: p.id,
           title: p.title,
@@ -327,8 +353,10 @@ export default function PostDetail() {
             "/placeholder.svg",
           tags: (p.tags || []).map((t) => `#${t.name}`),
           content: p.content,
+          aiData: parsedAiData, // 파싱된 AI 분석 결과
         });
         console.log("게시글 작성자 ID:", p.author_id, typeof p.author_id);
+        console.log("설정된 post.aiData:", parsedAiData);
         console.log("게시글 이미지:", images); // 디버깅용
         setLikeCount(p.like_count ?? 0);
         // 태그 목록 저장 (id 포함)
@@ -659,6 +687,127 @@ export default function PostDetail() {
               {post.content}
             </div>
           </div>
+
+          {/* AI 여행 비서 위젯 */}
+          {(() => {
+            console.log("🔍 AI 위젯 렌더링 체크:", {
+              hasPost: !!post,
+              hasAiData: !!post?.aiData,
+              aiData: post?.aiData,
+              is_travel: post?.aiData?.is_travel,
+              is_travel_type: typeof post?.aiData?.is_travel,
+              condition: post?.aiData && post?.aiData?.is_travel,
+            });
+            return post?.aiData && post?.aiData?.is_travel;
+          })() && (
+            <div className="mb-8 space-y-6">
+              {/* AI 코디 & 준비물 제안 */}
+              {post.aiData.outfit && (
+                <Card className="p-6 border-primary/20 bg-primary/5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Lightbulb className="w-5 h-5 text-primary" />
+                    <h3 className="text-xl font-bold text-foreground">
+                      AI 여행 코디 제안
+                    </h3>
+                  </div>
+                  {post.aiData.outfit.recommendations &&
+                    post.aiData.outfit.recommendations.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm font-semibold text-foreground/70 mb-2">
+                          추천 옷차림
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-foreground">
+                          {post.aiData.outfit.recommendations.map(
+                            (item, idx) => (
+                              <li key={idx}>{item}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  {post.aiData.outfit.essentials &&
+                    post.aiData.outfit.essentials.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-foreground/70 mb-2">
+                          필수 준비물
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-foreground">
+                          {post.aiData.outfit.essentials.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                </Card>
+              )}
+
+              {/* AI 타임라인 & 맛집 요약 */}
+              {post.aiData.timeline && post.aiData.timeline.length > 0 && (
+                <Card className="p-6 border-border">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <h3 className="text-xl font-bold text-foreground">
+                      AI 여행 일정 요약
+                    </h3>
+                  </div>
+                  <div className="space-y-4">
+                    {post.aiData.timeline.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex gap-4 pb-4 border-b border-border/50 last:border-0"
+                      >
+                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-bold text-primary">
+                            {item.day || idx + 1}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-foreground">
+                              {item.place}
+                            </p>
+                            {item.type === "restaurant" && (
+                              <Utensils className="w-4 h-4 text-orange-500" />
+                            )}
+                            {item.type === "cafe" && (
+                              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                카페
+                              </span>
+                            )}
+                            {item.type === "attraction" && (
+                              <MapPin className="w-4 h-4 text-blue-500" />
+                            )}
+                          </div>
+                          {item.review && (
+                            <p className="text-sm text-muted-foreground italic">
+                              {item.review}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* 일상글인 경우 간단한 AI 요약 */}
+          {post.aiData &&
+            post.aiData.is_travel === false &&
+            post.aiData.summary && (
+              <Card className="mb-8 p-4 border-border/50 bg-secondary/30">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground/70 mb-1">
+                      AI 한 줄 요약
+                    </p>
+                    <p className="text-foreground">{post.aiData.summary}</p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
           {/* 여행 사진 갤러리 */}
           {postImages.length > 0 && (

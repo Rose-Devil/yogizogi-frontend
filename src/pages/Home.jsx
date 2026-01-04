@@ -26,11 +26,17 @@ export default function Home() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasNextPage, setHasNextPage] = useState(true);
-  const [activeTab, setActiveTab] = useState("all"); // "all" 또는 "popular"
+  const [activeTab, setActiveTab] = useState("all"); // "all", "popular", "advertisement"
 
   // 인기 게시글 목록
   const [popularPosts, setPopularPosts] = useState([]);
   const [loadingPopularPosts, setLoadingPopularPosts] = useState(false);
+
+  // 광고성 게시글 목록
+  const [advertisementPosts, setAdvertisementPosts] = useState([]);
+  const [loadingAdvertisementPosts, setLoadingAdvertisementPosts] = useState(false);
+  const [adNextCursor, setAdNextCursor] = useState(null);
+  const [adHasNextPage, setAdHasNextPage] = useState(true);
 
   // 실제 댓글 데이터로 알림 생성
   const [notifications, setNotifications] = useState([]);
@@ -155,6 +161,52 @@ export default function Home() {
       setPopularPosts([]);
     } finally {
       setLoadingPopularPosts(false);
+    }
+  };
+
+  // 광고성 게시글 불러오기 (무한 스크롤)
+  const loadAdvertisementPosts = async (cursor = null) => {
+    if (!adHasNextPage && cursor !== null) return;
+    setLoadingAdvertisementPosts(true);
+    try {
+      const query = new URLSearchParams();
+      query.append("limit", "12");
+      query.append("sort", "advertisement");
+      if (cursor) {
+        query.append("cursor", cursor);
+      }
+
+      const res = await fetch(`/api/posts?${query.toString()}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.message || "광고성 게시글 조회 실패");
+      }
+
+      console.log("광고성 게시글 조회 성공:", json.data?.length || 0, "개");
+
+      const mapped = (json.data || []).map(mapPostData);
+
+      // 초기 로드(cursor가 null)면 교체, 그 외에는 추가
+      if (cursor === null) {
+        setAdvertisementPosts(mapped);
+      } else {
+        setAdvertisementPosts((prevPosts) => [...prevPosts, ...mapped]);
+      }
+      setAdHasNextPage(json.cursorPagination?.hasNextPage ?? false);
+      setAdNextCursor(json.cursorPagination?.nextCursor ?? null);
+    } catch (error) {
+      console.error("광고성 게시글 로드 실패:", error);
+      if (cursor === null) {
+        setAdvertisementPosts([]);
+      }
+    } finally {
+      setLoadingAdvertisementPosts(false);
     }
   };
 
@@ -339,6 +391,13 @@ export default function Home() {
   useEffect(() => {
     if (activeTab === "popular" && popularPosts.length === 0) {
       loadPopularPosts();
+    }
+  }, [activeTab]);
+
+  // 광고성 탭 선택 시 광고성 게시글 불러오기
+  useEffect(() => {
+    if (activeTab === "advertisement" && advertisementPosts.length === 0) {
+      loadAdvertisementPosts();
     }
   }, [activeTab]);
 
@@ -557,6 +616,7 @@ export default function Home() {
           {[
             { key: "all", label: "전체" },
             { key: "popular", label: "인기" },
+            { key: "advertisement", label: "광고성 게시글" },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -677,9 +737,96 @@ export default function Home() {
           </>
         )}
 
+        {/* 광고성 게시글 섹션 */}
+        {activeTab === "advertisement" && (
+          <>
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="text-primary">📢</span> 광고성 게시글
+            </h2>
+          </>
+        )}
+
         {/* 여행기 그리드 */}
         <div className="grid gap-6 grid-cols-4">
-          {loadingPosts && posts.length === 0 ? (
+          {activeTab === "advertisement" ? (
+            // 광고성 게시글 표시
+            loadingAdvertisementPosts && advertisementPosts.length === 0 ? (
+              <div className="col-span-full text-center text-muted-foreground">
+                광고성 게시글을 불러오는 중입니다...
+              </div>
+            ) : advertisementPosts.length === 0 ? (
+              <div className="col-span-full text-center text-muted-foreground">
+                광고성 게시글이 없습니다.
+              </div>
+            ) : (
+              advertisementPosts.map((post) => (
+                <Link to={`/post/${post.id}`} key={post.id}>
+                  <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50">
+                    {/* 이미지 */}
+                    <div className="relative h-48 overflow-hidden bg-secondary">
+                      <img
+                        src={post.image || "/placeholder.svg"}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      {/* 광고 배지 */}
+                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">
+                        광고
+                      </div>
+                    </div>
+
+                    {/* 콘텐츠 */}
+                    <div className="p-4">
+                      <h3 className="font-bold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+                        {post.title}
+                      </h3>
+
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
+                        <MapPin className="w-4 h-4" />
+                        <span>{post.location}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={post.authorAvatar || "/user-profile-avatar.png"}
+                            alt={post.author}
+                            className="w-6 h-6 rounded-full bg-secondary"
+                          />
+                          <span className="font-medium text-foreground/70">
+                            {post.author}
+                          </span>
+                        </div>
+                        <span>{post.date}</span>
+                      </div>
+
+                      <div className="flex gap-1 mb-4 flex-wrap">
+                        {post.tags.slice(0, 2).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs bg-secondary text-primary px-2 py-1 rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-muted-foreground border-t border-border/50 pt-3">
+                        <div className="flex items-center gap-1">
+                          <Heart className="w-4 h-4" />
+                          <span>{post.likes}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>{post.comments}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))
+            )
+          ) : loadingPosts && posts.length === 0 ? (
             <div className="col-span-full text-center text-muted-foreground">
               게시글을 불러오는 중입니다...
             </div>
@@ -753,16 +900,26 @@ export default function Home() {
           )}
         </div>
 
-        {/* 더보기 버튼 (전체 탭일 때만 표시) */}
-        {activeTab === "all" && hasNextPage && (
+        {/* 더보기 버튼 */}
+        {((activeTab === "all" && hasNextPage) || 
+          (activeTab === "advertisement" && adHasNextPage)) && (
           <div className="flex justify-center mt-12">
             <Button
-              onClick={handleLoadMore}
-              disabled={loadingPosts}
+              onClick={() => {
+                if (activeTab === "all") {
+                  handleLoadMore();
+                } else if (activeTab === "advertisement") {
+                  loadAdvertisementPosts(adNextCursor);
+                }
+              }}
+              disabled={activeTab === "all" ? loadingPosts : loadingAdvertisementPosts}
               variant="outline"
               className="border-border hover:bg-secondary bg-transparent"
             >
-              {loadingPosts ? "로딩 중..." : "더 보기"}
+              {activeTab === "all" 
+                ? (loadingPosts ? "로딩 중..." : "더 보기")
+                : (loadingAdvertisementPosts ? "로딩 중..." : "더 보기")
+              }
             </Button>
           </div>
         )}

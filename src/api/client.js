@@ -55,8 +55,13 @@ export async function apiFetch(input, init = {}) {
     headers.set("Content-Type", "application/json")
   }
 
-  const doFetch = (overrideHeaders) =>
-    fetch(input, { ...init, headers: overrideHeaders ?? headers, credentials: "include" })
+  const doFetch = (overrideHeaders, overrideBody = init.body) =>
+    fetch(input, { 
+      ...init, 
+      headers: overrideHeaders ?? headers, 
+      body: overrideBody,
+      credentials: "include" 
+    })
 
   const res = await doFetch()
   const shouldTryRefresh =
@@ -78,7 +83,8 @@ export async function apiFetch(input, init = {}) {
   }
   retryHeaders.set("Authorization", `Bearer ${newToken}`)
 
-  return doFetch(retryHeaders)
+  // FormData는 스트림이므로 재사용 불가 - 원본 body를 그대로 사용
+  return doFetch(retryHeaders, init.body)
 }
 
 export async function apiJson(input, init = {}) {
@@ -86,7 +92,20 @@ export async function apiJson(input, init = {}) {
   const data = await res.json().catch(() => null)
 
   if (!res.ok) {
-    const message = data?.message || `HTTP ${res.status}`
+    let message = data?.message || `HTTP ${res.status}`
+    
+    // 401 에러인 경우 더 명확한 메시지 제공
+    if (res.status === 401) {
+      // 토큰 갱신이 실패한 경우
+      if (message === "토큰이 유효하지 않습니다." || message.includes("토큰")) {
+        // FormData를 사용하는 경우 재시도가 어려우므로 명확한 안내
+        const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData
+        if (isFormData) {
+          message = "로그인이 만료되었습니다. 다시 로그인해주세요."
+        }
+      }
+    }
+    
     const error = new Error(message)
     error.status = res.status
     error.data = data

@@ -1,5 +1,7 @@
 const ACCESS_TOKEN_KEY = "accessToken"
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api"
+
 function notifyAuthChanged() {
   if (typeof window === "undefined") return
   window.dispatchEvent(new Event("auth:changed"))
@@ -25,8 +27,19 @@ export function clearAccessToken() {
   setAccessToken(null)
 }
 
+function buildApiUrl(path) {
+  if (typeof path !== "string") return path
+  if (path.startsWith("http://") || path.startsWith("https://")) return path
+
+  if (path === API_BASE) return path
+  if (path.startsWith(`${API_BASE}/`)) return path
+
+  if (!path.startsWith("/")) return `${API_BASE}/${path}`
+  return `${API_BASE}${path}`
+}
+
 async function refreshAccessToken() {
-  const res = await fetch("/api/auth/refresh", {
+  const res = await fetch(buildApiUrl("/auth/refresh"), {
     method: "POST",
     credentials: "include",
   })
@@ -48,6 +61,8 @@ export async function apiFetch(input, init = {}) {
   const token = getAccessToken()
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData
 
+  const requestInput = typeof input === "string" ? buildApiUrl(input) : input
+
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`)
   }
@@ -56,7 +71,7 @@ export async function apiFetch(input, init = {}) {
   }
 
   const doFetch = (overrideHeaders, overrideBody = init.body) =>
-    fetch(input, { 
+    fetch(requestInput, { 
       ...init, 
       headers: overrideHeaders ?? headers, 
       body: overrideBody,
@@ -64,13 +79,14 @@ export async function apiFetch(input, init = {}) {
     })
 
   const res = await doFetch()
+  const inputForChecks = typeof requestInput === "string" ? requestInput : ""
   const shouldTryRefresh =
     res.status === 401 &&
-    typeof input === "string" &&
-    !input.includes("/api/auth/login") &&
-    !input.includes("/api/auth/signup") &&
-    !input.includes("/api/auth/refresh") &&
-    !input.includes("/api/auth/logout")
+    !!inputForChecks &&
+    !inputForChecks.includes("/auth/login") &&
+    !inputForChecks.includes("/auth/signup") &&
+    !inputForChecks.includes("/auth/refresh") &&
+    !inputForChecks.includes("/auth/logout")
 
   if (!shouldTryRefresh) return res
 

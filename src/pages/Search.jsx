@@ -74,28 +74,28 @@ export default function SearchPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <Link to="/" className="font-extrabold text-foreground">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <Link to="/" className="font-extrabold text-foreground text-sm sm:text-base">
               Yogizogi
             </Link>
             <form className="flex-1 max-w-xl" onSubmit={handleSubmit}>
               <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                 <input
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   type="text"
                   placeholder="여행지, 태그 검색..."
-                  className="w-full pl-10 pr-12 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full pl-9 sm:pl-10 pr-10 sm:pr-12 py-1.5 sm:py-2 text-sm sm:text-base rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 <Button
                   type="submit"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8"
                   aria-label="검색"
                 >
-                  <Search className="w-5 h-5" />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </div>
             </form>
@@ -103,7 +103,7 @@ export default function SearchPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {!q && (
           <div className="text-muted-foreground">
             검색어를 입력하면 결과가 표시됩니다.

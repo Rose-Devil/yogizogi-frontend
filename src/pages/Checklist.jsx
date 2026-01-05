@@ -192,7 +192,8 @@ export default function ChecklistPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            초대 링크(`.../checklist/join/&lt;inviteCode&gt;`)를 열어도 바로 참여됩니다.
+            초대 링크(`.../checklist/join/&lt;inviteCode&gt;`)를 열어도 바로
+            참여됩니다.
           </p>
         </Card>
 

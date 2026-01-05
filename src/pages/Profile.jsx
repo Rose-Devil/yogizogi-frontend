@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Edit2,
-  Settings,
   MapPin,
   Eye,
   FileText,
@@ -118,13 +117,6 @@ export default function ProfilePage() {
                   여행기 작성
                 </Button>
               </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:bg-secondary"
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
             </div>
           </div>
         </div>

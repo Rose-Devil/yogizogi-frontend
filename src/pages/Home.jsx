@@ -20,17 +20,24 @@ export default function Home() {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 실제 백엔드에서 불러올 게시글 목록
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasNextPage, setHasNextPage] = useState(true);
-  const [activeTab, setActiveTab] = useState("all"); // "all" 또는 "popular"
+  const [activeTab, setActiveTab] = useState("all"); // "all", "popular", "advertisement"
 
   // 인기 게시글 목록
   const [popularPosts, setPopularPosts] = useState([]);
   const [loadingPopularPosts, setLoadingPopularPosts] = useState(false);
+
+  // 광고성 게시글 목록
+  const [advertisementPosts, setAdvertisementPosts] = useState([]);
+  const [loadingAdvertisementPosts, setLoadingAdvertisementPosts] = useState(false);
+  const [adNextCursor, setAdNextCursor] = useState(null);
+  const [adHasNextPage, setAdHasNextPage] = useState(true);
 
   // 실제 댓글 데이터로 알림 생성
   const [notifications, setNotifications] = useState([]);
@@ -39,6 +46,16 @@ export default function Home() {
   const { isAuthed, logout } = useAuthStatus();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) {
+      navigate("/search");
+      return;
+    }
+    navigate(`/search?q=${encodeURIComponent(q)}`);
+  };
 
   // 알림 영역 외 클릭 시 닫기
   useEffect(() => {
@@ -155,6 +172,52 @@ export default function Home() {
       setPopularPosts([]);
     } finally {
       setLoadingPopularPosts(false);
+    }
+  };
+
+  // 광고성 게시글 불러오기 (무한 스크롤)
+  const loadAdvertisementPosts = async (cursor = null) => {
+    if (!adHasNextPage && cursor !== null) return;
+    setLoadingAdvertisementPosts(true);
+    try {
+      const query = new URLSearchParams();
+      query.append("limit", "12");
+      query.append("sort", "advertisement");
+      if (cursor) {
+        query.append("cursor", cursor);
+      }
+
+      const res = await fetch(`/api/posts?${query.toString()}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const json = await res.json();
+
+      if (!json.success) {
+        throw new Error(json.message || "광고성 게시글 조회 실패");
+      }
+
+      console.log("광고성 게시글 조회 성공:", json.data?.length || 0, "개");
+
+      const mapped = (json.data || []).map(mapPostData);
+
+      // 초기 로드(cursor가 null)면 교체, 그 외에는 추가
+      if (cursor === null) {
+        setAdvertisementPosts(mapped);
+      } else {
+        setAdvertisementPosts((prevPosts) => [...prevPosts, ...mapped]);
+      }
+      setAdHasNextPage(json.cursorPagination?.hasNextPage ?? false);
+      setAdNextCursor(json.cursorPagination?.nextCursor ?? null);
+    } catch (error) {
+      console.error("광고성 게시글 로드 실패:", error);
+      if (cursor === null) {
+        setAdvertisementPosts([]);
+      }
+    } finally {
+      setLoadingAdvertisementPosts(false);
     }
   };
 
@@ -342,6 +405,13 @@ export default function Home() {
     }
   }, [activeTab]);
 
+  // 광고성 탭 선택 시 광고성 게시글 불러오기
+  useEffect(() => {
+    if (activeTab === "advertisement" && advertisementPosts.length === 0) {
+      loadAdvertisementPosts();
+    }
+  }, [activeTab]);
+
   // 로그인 상태 변경 시 알림 불러오기
   useEffect(() => {
     if (isAuthed) {
@@ -386,18 +456,18 @@ export default function Home() {
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
             <Link
               to="/"
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
             >
               <img
                 src="/logo.png"
                 alt="요기조기"
-                className="w-10 h-10 rounded-lg flex-shrink-0"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex-shrink-0"
               />
               <span
-                className="text-xl text-foreground"
+                className="text-lg sm:text-xl text-foreground hidden sm:inline"
                 style={{
                   fontFamily: notoSansKR,
                   fontWeight: 900,
@@ -409,35 +479,46 @@ export default function Home() {
             </Link>
 
             {/* 검색바 */}
-            <div className="flex flex-1 max-w-sm mx-8">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <div className="flex flex-1 max-w-sm mx-2 sm:mx-8">
+              <form className="relative w-full" onSubmit={handleSearchSubmit}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                 <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   type="text"
                   placeholder="여행지, 태그 검색..."
-                  className="w-full pl-10 pr-4 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full pl-9 sm:pl-10 pr-10 sm:pr-12 py-1.5 sm:py-2 text-sm sm:text-base rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
-              </div>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8"
+                  aria-label="검색"
+                >
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                </Button>
+              </form>
             </div>
 
             {/* 우측 버튼 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1 sm:gap-4">
               <Link to="/write">
-                <Button className="flex gap-2 bg-primary hover:bg-primary/90">
-                  <Plus className="w-5 h-5" />
-                  여행기 작성
+                <Button className="flex gap-1 sm:gap-2 bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">여행기 작성</span>
                 </Button>
               </Link>
               <div className="relative" ref={notificationRef}>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hover:bg-secondary relative"
+                  className="hover:bg-secondary relative h-8 w-8 sm:h-10 sm:w-10"
                   onClick={() => setShowNotifications((prev) => !prev)}
                   aria-expanded={showNotifications}
                   aria-label="알림 확인"
                 >
-                  <Bell className="w-5 h-5" />
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[1rem] rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1 flex items-center justify-center">
                       {unreadCount}
@@ -445,7 +526,7 @@ export default function Home() {
                   )}
                 </Button>
                 {showNotifications && (
-                  <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
+                  <div className="absolute right-0 mt-3 w-72 sm:w-80 rounded-2xl border border-border bg-card shadow-xl overflow-hidden z-50">
                     <div className="px-4 py-3 font-bold text-foreground border-b border-border/60">
                       알림
                     </div>
@@ -522,17 +603,19 @@ export default function Home() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="hover:bg-secondary"
+                      className="hover:bg-secondary h-8 w-8 sm:h-10 sm:w-10"
                     >
-                      <User className="w-5 h-5" />
+                      <User className="w-4 h-4 sm:w-5 sm:h-5" />
                     </Button>
                   </Link>
                   <Button
                     variant="ghost"
                     style={{ fontFamily: notoSansKR, fontWeight: 900 }}
                     onClick={logout}
+                    className="text-xs sm:text-sm px-2 sm:px-4"
                   >
-                    로그아웃
+                    <span className="hidden sm:inline">로그아웃</span>
+                    <span className="sm:hidden">로그아웃</span>
                   </Button>
                 </>
               )}
@@ -541,6 +624,7 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     style={{ fontFamily: notoSansKR, fontWeight: 900 }}
+                    className="text-xs sm:text-sm px-2 sm:px-4"
                   >
                     로그인
                   </Button>
@@ -551,12 +635,13 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* 필터 탭 */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+        <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
           {[
             { key: "all", label: "전체" },
             { key: "popular", label: "인기" },
+            { key: "advertisement", label: "광고성 게시글" },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -598,7 +683,7 @@ export default function Home() {
                 인기 게시글이 없습니다.
               </div>
             ) : (
-              <div className="grid gap-6 grid-cols-4 mb-8">
+              <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
                 {popularPosts.map((post) => (
                   <Link to={`/post/${post.id}`} key={post.id}>
                     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50">
@@ -677,9 +762,96 @@ export default function Home() {
           </>
         )}
 
+        {/* 광고성 게시글 섹션 */}
+        {activeTab === "advertisement" && (
+          <>
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="text-primary">📢</span> 광고성 게시글
+            </h2>
+          </>
+        )}
+
         {/* 여행기 그리드 */}
-        <div className="grid gap-6 grid-cols-4">
-          {loadingPosts && posts.length === 0 ? (
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {activeTab === "advertisement" ? (
+            // 광고성 게시글 표시
+            loadingAdvertisementPosts && advertisementPosts.length === 0 ? (
+              <div className="col-span-full text-center text-muted-foreground">
+                광고성 게시글을 불러오는 중입니다...
+              </div>
+            ) : advertisementPosts.length === 0 ? (
+              <div className="col-span-full text-center text-muted-foreground">
+                광고성 게시글이 없습니다.
+              </div>
+            ) : (
+              advertisementPosts.map((post) => (
+                <Link to={`/post/${post.id}`} key={post.id}>
+                  <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50">
+                    {/* 이미지 */}
+                    <div className="relative h-48 overflow-hidden bg-secondary">
+                      <img
+                        src={post.image || "/placeholder.svg"}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      {/* 광고 배지 */}
+                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">
+                        광고
+                      </div>
+                    </div>
+
+                    {/* 콘텐츠 */}
+                    <div className="p-4">
+                      <h3 className="font-bold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+                        {post.title}
+                      </h3>
+
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
+                        <MapPin className="w-4 h-4" />
+                        <span>{post.location}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={post.authorAvatar || "/user-profile-avatar.png"}
+                            alt={post.author}
+                            className="w-6 h-6 rounded-full bg-secondary"
+                          />
+                          <span className="font-medium text-foreground/70">
+                            {post.author}
+                          </span>
+                        </div>
+                        <span>{post.date}</span>
+                      </div>
+
+                      <div className="flex gap-1 mb-4 flex-wrap">
+                        {post.tags.slice(0, 2).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs bg-secondary text-primary px-2 py-1 rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-muted-foreground border-t border-border/50 pt-3">
+                        <div className="flex items-center gap-1">
+                          <Heart className="w-4 h-4" />
+                          <span>{post.likes}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>{post.comments}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))
+            )
+          ) : loadingPosts && posts.length === 0 ? (
             <div className="col-span-full text-center text-muted-foreground">
               게시글을 불러오는 중입니다...
             </div>
@@ -753,16 +925,26 @@ export default function Home() {
           )}
         </div>
 
-        {/* 더보기 버튼 (전체 탭일 때만 표시) */}
-        {activeTab === "all" && hasNextPage && (
+        {/* 더보기 버튼 */}
+        {((activeTab === "all" && hasNextPage) || 
+          (activeTab === "advertisement" && adHasNextPage)) && (
           <div className="flex justify-center mt-12">
             <Button
-              onClick={handleLoadMore}
-              disabled={loadingPosts}
+              onClick={() => {
+                if (activeTab === "all") {
+                  handleLoadMore();
+                } else if (activeTab === "advertisement") {
+                  loadAdvertisementPosts(adNextCursor);
+                }
+              }}
+              disabled={activeTab === "all" ? loadingPosts : loadingAdvertisementPosts}
               variant="outline"
               className="border-border hover:bg-secondary bg-transparent"
             >
-              {loadingPosts ? "로딩 중..." : "더 보기"}
+              {activeTab === "all" 
+                ? (loadingPosts ? "로딩 중..." : "더 보기")
+                : (loadingAdvertisementPosts ? "로딩 중..." : "더 보기")
+              }
             </Button>
           </div>
         )}
@@ -771,7 +953,7 @@ export default function Home() {
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
         <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8">
             <div>
               <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">

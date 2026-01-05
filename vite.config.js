@@ -27,7 +27,13 @@ export default defineConfig(({ mode }) => {
           target: apiTarget,
           changeOrigin: true,
           secure: false,
-          ws: true, // WebSocket 지원
+          ws: true,
+        },
+        "/socket.io": {
+          target: apiTarget,
+          changeOrigin: true,
+          secure: false,
+          ws: true,
         },
         "/uploads": {
           target: apiTarget,
@@ -41,3 +47,4 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+

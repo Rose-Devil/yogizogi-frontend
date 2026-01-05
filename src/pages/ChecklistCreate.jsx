@@ -12,6 +12,8 @@ export default function CreateChecklistPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isAuthed } = useAuthStatus();
@@ -24,6 +26,15 @@ export default function CreateChecklistPage() {
 
   const handleCreate = async () => {
     if (!title.trim()) return;
+    if (!startDate || !endDate) {
+      setError("여행 시작일과 종료일을 모두 입력해 주세요.");
+      return;
+    }
+    if (startDate > endDate) {
+      setError("시작일이 종료일보다 늦습니다.");
+      return;
+    }
+
     setError("");
     setIsSubmitting(true);
 
@@ -31,6 +42,8 @@ export default function CreateChecklistPage() {
       const data = await createChecklist({
         title: title.trim(),
         description: description.trim() || null,
+        startDate,
+        endDate,
       });
       navigate(data?.id ? `/checklist/${data.id}` : "/checklist");
     } catch (err) {
@@ -39,9 +52,7 @@ export default function CreateChecklistPage() {
         navigate("/login");
         return;
       }
-      setError(
-        err instanceof Error ? err.message : "체크리스트를 만들지 못했습니다."
-      );
+      setError(err instanceof Error ? err.message : "체크리스트를 만들지 못했습니다.");
     } finally {
       setIsSubmitting(false);
     }
@@ -53,15 +64,8 @@ export default function CreateChecklistPage() {
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <Link
-              to="/"
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
-              <img
-                src="/logo.png"
-                alt="요기조기"
-                className="w-10 h-10 rounded-lg flex-shrink-0"
-              />
+            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <img src="/logo.png" alt="여기저기" className="w-10 h-10 rounded-lg flex-shrink-0" />
               <span
                 className="text-xl text-foreground hidden sm:inline"
                 style={{
@@ -70,21 +74,13 @@ export default function CreateChecklistPage() {
                   transform: "translate(-7px, 1.5px)",
                 }}
               >
-                요기조기
+                여기저기
               </span>
             </Link>
 
             <Link to="/profile">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hover:bg-secondary"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
+              <Button variant="ghost" size="icon" className="hover:bg-secondary">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                 </svg>
               </Button>
@@ -102,23 +98,16 @@ export default function CreateChecklistPage() {
             <ArrowLeft className="w-4 h-4" />
             뒤로가기
           </Link>
-          <h1
-            className="text-3xl font-black text-foreground mb-2"
-            style={{ fontFamily: notoSansKR }}
-          >
-            새 체크리스트 만들기
+          <h1 className="text-3xl font-black text-foreground mb-2" style={{ fontFamily: notoSansKR }}>
+            여행 체크리스트 만들기
           </h1>
-          <p className="text-muted-foreground">
-            여행 준비를 위한 체크리스트를 작성하세요.
-          </p>
+          <p className="text-muted-foreground">여행 준비를 위한 체크리스트를 생성하세요.</p>
         </div>
 
         <Card className="p-8 border-border/50">
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-foreground mb-2">
-                체크리스트 이름 *
-              </label>
+              <label className="block text-sm font-bold text-foreground mb-2">체크리스트 제목 *</label>
               <input
                 type="text"
                 value={title}
@@ -129,21 +118,40 @@ export default function CreateChecklistPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-foreground mb-2">
-                설명
-              </label>
+              <label className="block text-sm font-bold text-foreground mb-2">설명</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="함께 챙길 물품이나 메모를 적어주세요"
+                placeholder="함께 준비할 물품이나 메모를 적어주세요."
                 className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none h-24"
               />
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-foreground mb-2">여행 시작일 *</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-foreground mb-2">여행 종료일 *</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+
             <div className="bg-sky-50 border border-sky-200 rounded-lg p-4">
               <p className="text-sm text-foreground">
-                <span className="font-bold">TIP.</span> 체크리스트를 만들면
-                멤버들이 바로 확인할 수 있어요. 링크를 공유해 초대해보세요.
+                <span className="font-bold">TIP.</span> 체크리스트를 만들면 멤버가 바로 확인하고 링크로 참여할 수 있어요.
               </p>
             </div>
 
@@ -151,10 +159,7 @@ export default function CreateChecklistPage() {
 
             <div className="flex gap-4 pt-6">
               <Link to="/checklist" className="flex-1">
-                <Button
-                  variant="outline"
-                  className="w-full border-border hover:bg-secondary bg-transparent"
-                >
+                <Button variant="outline" className="w-full border-border hover:bg-secondary bg-transparent">
                   취소
                 </Button>
               </Link>

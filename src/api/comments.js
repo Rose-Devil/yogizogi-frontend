@@ -41,3 +41,27 @@ export async function createReply(postId, commentId, content) {
     });
     return res.data;
 }
+/**
+ * Update an existing comment.
+ * @param {string|number} commentId
+ * @param {string} content
+ * @returns {Promise<Object>} Updated comment
+ */
+export async function updateComment(commentId, content) {
+    const res = await apiJson(`/api/comments/${commentId}`, {
+        method: "PUT",
+        body: JSON.stringify({ content }),
+    });
+    return res.data;
+}
+
+/**
+ * Delete a comment.
+ * @param {string|number} commentId
+ * @returns {Promise<void>}
+ */
+export async function deleteComment(commentId) {
+    await apiJson(`/api/comments/${commentId}`, {
+        method: "DELETE",
+    });
+}

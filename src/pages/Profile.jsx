@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,11 +15,13 @@ import { apiJson } from "@/api/client";
 const notoSansKR = "Noto Sans KR";
 
 export default function ProfilePage() {
+  const { userId } = useParams(); // URL 파라미터에서 userId 가져오기
   const [userProfile, setUserProfile] = useState(null);
   const [stats, setStats] = useState({ postCount: 0, totalViews: 0 });
   const [myTrips, setMyTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -27,8 +29,35 @@ export default function ProfilePage() {
       setError(null);
 
       try {
-        // /api/auth/me 한 번만 호출해서 모든 데이터 받기
-        const data = await apiJson("/api/auth/me");
+        // userId가 있으면 해당 사용자 프로필 조회, 없으면 현재 사용자 프로필 조회
+        let data;
+        let currentUserId = null;
+
+        // 현재 사용자 ID 확인 (본인 프로필인지 확인용)
+        try {
+          const currentUserData = await apiJson("/api/auth/me");
+          currentUserId = currentUserData.user?.id || currentUserData.data?.id;
+        } catch (err) {
+          // 인증되지 않은 사용자도 다른 사람 프로필은 볼 수 있음
+        }
+
+        if (userId) {
+          // 특정 사용자 프로필 조회
+          try {
+            data = await apiJson(`/api/user/${userId}`);
+            setIsOwnProfile(
+              currentUserId && parseInt(userId) === currentUserId
+            );
+          } catch (err) {
+            console.error("사용자 프로필 조회 실패:", err);
+            setError("사용자 프로필을 불러오는데 실패했습니다.");
+            return;
+          }
+        } else {
+          // 현재 사용자 프로필 조회
+          data = await apiJson("/api/auth/me");
+          setIsOwnProfile(true);
+        }
 
         // 사용자 프로필 설정
         setUserProfile({
@@ -120,16 +149,18 @@ export default function ProfilePage() {
                 <h1 className="text-3xl font-bold text-foreground">
                   {userProfile?.nickname || "사용자"}
                 </h1>
-                <Link to="/profile/edit">
-                  <Button
-                    variant="outline"
-                    className="gap-2 bg-transparent"
-                    size="sm"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    편집
-                  </Button>
-                </Link>
+                {isOwnProfile && (
+                  <Link to="/profile/edit">
+                    <Button
+                      variant="outline"
+                      className="gap-2 bg-transparent"
+                      size="sm"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      편집
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               <p className="text-muted-foreground mb-6 max-w-2xl">

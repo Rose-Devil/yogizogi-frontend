@@ -6,13 +6,13 @@ import { useState, useEffect } from "react";
 const AD_DATA = [
   {
     id: 1,
-    image: "../../public/unigen.png",
+    image: "/unigen.png",
     link: "https://unigensns.duckdns.org/",
     alt: "여행 상품 광고",
   },
   {
     id: 2,
-    image: "../../trip canvas.png",
+    image: "/trip%20canvas.png",
     link: "https://sunlike-diametrically-marta.ngrok-free.dev/",
     alt: "호텔 예약 광고",
   },

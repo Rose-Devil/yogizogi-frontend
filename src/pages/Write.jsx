@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, ImageIcon, Trash2, Save } from "lucide-react";
+import {
+  MapPin,
+  Calendar,
+  ImageIcon,
+  Trash2,
+  Save,
+  Sparkles,
+} from "lucide-react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
 import { apiJson } from "@/api/client";
 import { me } from "@/api/auth";
@@ -37,6 +44,7 @@ export default function WritePage() {
   const [thumbnailFile, setThumbnailFile] = useState(null); // File 객체 저장
   const [imagePreviews, setImagePreviews] = useState([]);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
+  const [converting, setConverting] = useState(false); // MZ 변환 로딩 상태
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedRange, setSelectedRange] = useState({ from: null, to: null });
   const calendarRef = useRef(null);
@@ -47,6 +55,8 @@ export default function WritePage() {
   const [kakaoReady, setKakaoReady] = useState(false);
   const [placeSearchError, setPlaceSearchError] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const saveDraftTimeoutRef = useRef(null);
+  const DRAFT_STORAGE_KEY = "post_draft";
 
   // 인증 체크 및 현재 사용자 ID 가져오기
   useEffect(() => {
@@ -71,6 +81,170 @@ export default function WritePage() {
 
     loadCurrentUser();
   }, [isAuthed, navigate]);
+
+  // base64를 File 객체로 변환
+  const base64ToFile = (base64String, filename, mimeType) => {
+    const byteCharacters = atob(base64String.split(",")[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new File([byteArray], filename, { type: mimeType });
+  };
+
+  // 임시저장 데이터 로드 (수정 모드가 아닐 때만)
+  useEffect(() => {
+    if (!isEditMode && !id) {
+      try {
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (savedDraft) {
+          const draft = JSON.parse(savedDraft);
+          // 사용자에게 복원할지 물어봄
+          const shouldRestore = window.confirm(
+            "이전에 작성하던 내용이 있습니다. 복원하시겠습니까?"
+          );
+          if (shouldRestore) {
+            setTitle(draft.title || "");
+            setContent(draft.content || "");
+            setLocation(draft.location || "");
+            setDateRange(draft.dateRange || "");
+            setTagsInput(draft.tagsInput || "#여행");
+            setAllowComments(draft.allowComments !== undefined ? draft.allowComments : true);
+            
+            // base64 이미지 복원
+            if (draft.imageBase64s && draft.imageBase64s.length > 0) {
+              const restoredFiles = draft.imageBase64s.map((base64, index) => {
+                // base64에서 mime type 추출
+                const mimeMatch = base64.match(/data:([^;]+);/);
+                const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+                return base64ToFile(base64, `image-${index}.jpg`, mimeType);
+              });
+              setImages(restoredFiles);
+            }
+            
+            if (draft.thumbnailBase64) {
+              const mimeMatch = draft.thumbnailBase64.match(/data:([^;]+);/);
+              const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+              const thumbnailFile = base64ToFile(draft.thumbnailBase64, "thumbnail.jpg", mimeType);
+              setThumbnailFile(thumbnailFile);
+            }
+          } else {
+            // 복원하지 않으면 임시저장 삭제
+            localStorage.removeItem(DRAFT_STORAGE_KEY);
+          }
+        }
+      } catch (error) {
+        console.error("임시저장 데이터 로드 실패:", error);
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+    }
+  }, [isEditMode, id]);
+
+  // 임시저장 함수 (File 객체는 base64로 변환)
+  const saveDraft = async () => {
+    if (isEditMode) return; // 수정 모드에서는 임시저장 안 함
+
+    try {
+      // 이미지 파일을 base64로 변환
+      const imageBase64Promises = images
+        .filter((img) => img instanceof File)
+        .map((file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+          });
+        });
+
+      const thumbnailBase64Promise = thumbnailFile
+        ? new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(thumbnailFile);
+          })
+        : Promise.resolve(null);
+
+      const [imageBase64s, thumbnailBase64] = await Promise.all([
+        Promise.all(imageBase64Promises),
+        thumbnailBase64Promise,
+      ]);
+
+      const draft = {
+        title,
+        content,
+        location,
+        dateRange,
+        tagsInput,
+        allowComments,
+        imageBase64s: imageBase64s.filter(Boolean),
+        thumbnailBase64,
+        savedAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.error("임시저장 실패:", error);
+    }
+  };
+
+  // debounce된 임시저장 (1.5초마다)
+  useEffect(() => {
+    if (isEditMode) return; // 수정 모드에서는 임시저장 안 함
+
+    // 기존 타이머 취소
+    if (saveDraftTimeoutRef.current) {
+      clearTimeout(saveDraftTimeoutRef.current);
+    }
+
+    // 내용이 있을 때만 저장
+    if (title || content || location) {
+      saveDraftTimeoutRef.current = setTimeout(() => {
+        saveDraft();
+      }, 1500); // 1.5초 후 저장
+    }
+
+    return () => {
+      if (saveDraftTimeoutRef.current) {
+        clearTimeout(saveDraftTimeoutRef.current);
+      }
+    };
+  }, [title, content, location, dateRange, tagsInput, allowComments, images, thumbnailFile, isEditMode]);
+
+  // 페이지 종료 전 임시저장 (beforeunload)
+  useEffect(() => {
+    if (isEditMode) return;
+
+    const handleBeforeUnload = (e) => {
+      if (title || content || location) {
+        // 동기적으로 저장 (비동기는 작동하지 않으므로 동기 저장)
+        try {
+          const draft = {
+            title,
+            content,
+            location,
+            dateRange,
+            tagsInput,
+            allowComments,
+            // 이미지는 base64 변환이 시간이 걸리므로 저장하지 않음
+            imageBase64s: [],
+            thumbnailBase64: null,
+            savedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+        } catch (error) {
+          console.error("임시저장 실패:", error);
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isEditMode, title, content, location, dateRange, tagsInput, allowComments]);
 
   // 수정 모드일 때 기존 게시글 데이터 불러오기
   useEffect(() => {
@@ -367,6 +541,10 @@ export default function WritePage() {
       }
 
       const post = json.data;
+      
+      // 게시글 작성 성공 시 임시저장 삭제
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      
       if (post && post.id) {
         navigate(`/post/${post.id}`);
       } else {
@@ -374,7 +552,16 @@ export default function WritePage() {
       }
     } catch (e) {
       console.error(e);
-      setError(e.message || "알 수 없는 오류가 발생했습니다.");
+      const errorMessage = e.message || "알 수 없는 오류가 발생했습니다.";
+      
+      // 토큰 만료 에러인 경우 로그인 페이지로 리다이렉트
+      if (errorMessage.includes("로그인") || errorMessage.includes("토큰") || e.status === 401) {
+        alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+        return;
+      }
+      
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -454,21 +641,49 @@ export default function WritePage() {
     }
   };
 
+  const handleMzConvert = async () => {
+    if (!content) {
+      setError("변환할 내용을 입력해주세요.");
+      return;
+    }
+
+    setConverting(true);
+    setError("");
+
+    try {
+      const res = await apiJson("/api/ai/mz-convert", {
+        method: "POST",
+        body: JSON.stringify({ text: content }),
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || "MZ 스타일 변환에 실패했습니다.");
+      }
+
+      setContent(res.data.converted);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "MZ 스타일 변환 중 오류가 발생했습니다.");
+    } finally {
+      setConverting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Link to="/">
-              <div className="flex items-center gap-3 cursor-pointer hover:opacity-70 transition-opacity">
+              <div className="flex items-center gap-2 sm:gap-3 cursor-pointer hover:opacity-70 transition-opacity">
                 <img
                   src="/logo.png"
                   alt="요기조기"
-                  className="w-10 h-10 rounded-lg flex-shrink-0"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex-shrink-0"
                 />
                 <span
-                  className="text-xl font-[900] text-foreground"
+                  className="text-lg sm:text-xl font-[900] text-foreground hidden sm:inline"
                   style={{
                     fontFamily: notoSansKR,
                     transform: "translate(-7px, 1.5px)",
@@ -480,27 +695,27 @@ export default function WritePage() {
             </Link>
 
             {/* 우측 버튼 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link to={isEditMode ? `/post/${id}` : "/"}>
-                <Button variant="ghost">취소</Button>
+                <Button variant="ghost" className="text-xs sm:text-sm px-2 sm:px-4">취소</Button>
               </Link>
               {isEditMode && (
                 <Button
                   variant="destructive"
-                  className="gap-2"
+                  className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
                   onClick={handleDelete}
                   disabled={deleting}
                 >
-                  <Trash2 className="w-4 h-4" />
-                  {deleting ? "삭제 중..." : "삭제"}
+                  <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{deleting ? "삭제 중..." : "삭제"}</span>
                 </Button>
               )}
               <Button
-                className="bg-primary hover:bg-primary/90 gap-2"
+                className="bg-primary hover:bg-primary/90 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
                 onClick={handleSubmit}
                 disabled={submitting}
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-3 h-3 sm:w-4 sm:h-4" />
                 {submitting
                   ? isEditMode
                     ? "수정 중..."
@@ -514,7 +729,7 @@ export default function WritePage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">
             게시글을 불러오는 중...
@@ -526,7 +741,7 @@ export default function WritePage() {
               <input
                 type="text"
                 placeholder="여행기의 제목을 입력하세요"
-                className="w-full text-4xl font-bold text-foreground placeholder-muted-foreground/50 bg-transparent focus:outline-none border-b-2 border-transparent hover:border-border focus:border-primary pb-4 transition-colors"
+                className="w-full text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground placeholder-muted-foreground/50 bg-transparent focus:outline-none border-b-2 border-transparent hover:border-border focus:border-primary pb-4 transition-colors"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -542,7 +757,7 @@ export default function WritePage() {
                 onChange={handlePickThumbnail}
               />
               <div
-                className="relative h-64 rounded-lg bg-secondary/50 border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/70 transition-colors group overflow-hidden"
+                className="relative h-48 sm:h-64 rounded-lg bg-secondary/50 border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/70 transition-colors group overflow-hidden"
                 onClick={() => thumbnailInputRef.current?.click()}
               >
                 {thumbnailPreview && (
@@ -579,7 +794,7 @@ export default function WritePage() {
             </div>
 
             {/* 여행 정보 */}
-            <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 pb-8 border-b border-border">
               {/* 위치 */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -714,7 +929,7 @@ export default function WritePage() {
                 hidden
                 onChange={handlePickImages}
               />
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {imagePreviews.map((src, idx) => (
                   <div
                     key={`${src}-${idx}`}
@@ -767,9 +982,22 @@ export default function WritePage() {
 
             {/* 본문 */}
             <div className="mb-8">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                여행기 내용
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-foreground">
+                  여행기 내용
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-primary border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  onClick={handleMzConvert}
+                  disabled={converting || !content}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {converting ? "변환 중..." : "MZ 스타일로 변환"}
+                </Button>
+              </div>
               <textarea
                 placeholder="당신의 여행 이야기를 자유롭게 작성해주세요..."
                 className="w-full px-4 py-4 rounded-lg border border-border bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"

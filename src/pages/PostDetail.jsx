@@ -8,12 +8,16 @@ import {
   Clock,
   X,
   Plus,
+  Sparkles,
+  Calendar,
+  Utensils,
+  Lightbulb,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-import { getComments, createComment, createReply } from "@/api/comments";
+import { getComments, createComment, createReply, updateComment, deleteComment } from "@/api/comments";
 import { apiJson } from "@/api/client";
 import { me } from "@/api/auth";
 
@@ -26,8 +30,60 @@ const CommentItem = ({
   replyContent,
   handleSubmitReply,
   replyLoading,
+  currentUserId,
+  postAuthorId,
+  onRefresh,
 }) => {
   const isReplying = replyTargetId === comment.id;
+  const navigate = useNavigate();
+  const authorId = comment.author_id || comment.author?.id;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(comment.content);
+  const [editLoading, setEditLoading] = useState(false);
+
+  const handleProfileClick = () => {
+    if (authorId && !comment.is_ai) {
+      navigate(`/profile/${authorId}`);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editContent.trim()) return;
+    setEditLoading(true);
+    try {
+      await updateComment(comment.id, editContent);
+      setIsEditing(false);
+      onRefresh();
+    } catch (error) {
+      console.error("댓글 수정 실패:", error);
+      alert("댓글 수정에 실패했습니다.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("정말로 이 댓글을 삭제하시겠습니까?")) return;
+    try {
+      await deleteComment(comment.id);
+      onRefresh();
+    } catch (error) {
+      console.error("댓글 삭제 실패:", error);
+      alert("댓글 삭제에 실패했습니다.");
+    }
+  };
+
+  // 권한 확인
+  const canEdit =
+    currentUserId &&
+    parseInt(currentUserId) === parseInt(authorId) &&
+    !comment.is_ai;
+
+  const canDelete =
+    currentUserId &&
+    (parseInt(currentUserId) === parseInt(authorId) ||
+      parseInt(currentUserId) === parseInt(postAuthorId));
 
   return (
     <div className="flex flex-col gap-3">
@@ -36,7 +92,12 @@ const CommentItem = ({
           <img
             src={comment.author?.profile_image || "/user-profile-avatar.png"}
             alt={comment.author?.nickname || comment.author || "작성자"}
-            className="w-10 h-10 rounded-full bg-secondary"
+            className={`w-10 h-10 rounded-full bg-secondary ${
+              authorId && !comment.is_ai
+                ? "cursor-pointer hover:opacity-80 transition-opacity"
+                : ""
+            }`}
+            onClick={handleProfileClick}
           />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
@@ -56,9 +117,42 @@ const CommentItem = ({
                 </p>
               </div>
             </div>
-            <p className="text-foreground mb-2 whitespace-pre-wrap">
-              {comment.content}
-            </p>
+
+            {isEditing ? (
+              <div className="mb-2">
+                <textarea
+                  className="w-full bg-secondary/50 text-foreground rounded-lg px-3 py-2 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none mb-2"
+                  rows={2}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditContent(comment.content);
+                    }}
+                    disabled={editLoading}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleUpdate}
+                    disabled={editLoading}
+                  >
+                    저장
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-foreground mb-2 whitespace-pre-wrap">
+                {comment.content}
+              </p>
+            )}
+
             <div className="flex items-center gap-4">
               <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Heart className="w-4 h-4" />
@@ -77,6 +171,26 @@ const CommentItem = ({
               >
                 {isReplying ? "취소" : "답글달기"}
               </button>
+              {!isEditing && (
+                <>
+                  {canEdit && (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      수정
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={handleDelete}
+                      className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -125,6 +239,9 @@ const CommentItem = ({
               replyContent={replyContent}
               handleSubmitReply={handleSubmitReply}
               replyLoading={replyLoading}
+              currentUserId={currentUserId}
+              postAuthorId={postAuthorId}
+              onRefresh={onRefresh}
             />
           ))}
         </div>
@@ -297,6 +414,28 @@ export default function PostDetail() {
           authorAvatar: authorAvatar,
         });
 
+        // ai_data 확인 및 파싱
+        let parsedAiData = null;
+        if (p.ai_data) {
+          if (typeof p.ai_data === "string") {
+            try {
+              parsedAiData = JSON.parse(p.ai_data);
+            } catch (e) {
+              console.error("AI 데이터 JSON 파싱 실패:", e);
+              parsedAiData = null;
+            }
+          } else {
+            parsedAiData = p.ai_data;
+          }
+        }
+
+        console.log("AI 데이터 확인:", {
+          원본: p.ai_data,
+          원본타입: typeof p.ai_data,
+          파싱된데이터: parsedAiData,
+          is_travel: parsedAiData?.is_travel,
+        });
+
         setPost({
           id: p.id,
           title: p.title,
@@ -314,8 +453,10 @@ export default function PostDetail() {
             "/placeholder.svg",
           tags: (p.tags || []).map((t) => `#${t.name}`),
           content: p.content,
+          aiData: parsedAiData, // 파싱된 AI 분석 결과
         });
         console.log("게시글 작성자 ID:", p.author_id, typeof p.author_id);
+        console.log("설정된 post.aiData:", parsedAiData);
         console.log("게시글 이미지:", images); // 디버깅용
         setLikeCount(p.like_count ?? 0);
         // 태그 목록 저장 (id 포함)
@@ -508,14 +649,14 @@ export default function PostDetail() {
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Link
               to="/"
-              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+              className="flex items-center gap-1 sm:gap-2 hover:opacity-70 transition-opacity"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               <span
-                className="font-semibold"
+                className="font-semibold text-sm sm:text-base"
                 style={{
                   fontFamily: "Noto Sans KR Black",
                   transform: "translateY(3px)",
@@ -524,19 +665,20 @@ export default function PostDetail() {
                 돌아가기
               </span>
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* 본인 게시글만 수정 버튼 표시 */}
               {post && currentUserId && post.authorId === currentUserId && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate(`/post/${id}/edit`)}
+                  className="text-xs sm:text-sm px-2 sm:px-4"
                 >
                   수정
                 </Button>
               )}
               <Link to="/profile">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="text-xs sm:text-sm px-2 sm:px-4">
                   프로필
                 </Button>
               </Link>
@@ -545,11 +687,11 @@ export default function PostDetail() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* 게시글 헤더 */}
         <article>
           {/* 메인 이미지 */}
-          <div className="w-full h-96 rounded-xl overflow-hidden mb-8 bg-secondary">
+          <div className="w-full h-48 sm:h-64 lg:h-96 rounded-xl overflow-hidden mb-6 sm:mb-8 bg-secondary">
             <img
               src={post.image || "/placeholder.svg"}
               alt={post.title}
@@ -559,35 +701,35 @@ export default function PostDetail() {
 
           {/* 제목 및 기본 정보 */}
           <div className="mb-6">
-            <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4 text-balance">
               {post.title}
             </h1>
 
-            <div className="flex flex-row items-center gap-4 mb-6 pb-6 border-b border-border">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-6 pb-6 border-b border-border">
               {/* 작가 정보 */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <img
                   src={post.authorAvatar || "/user-profile-avatar.png"}
                   alt={post.author}
-                  className="w-12 h-12 rounded-full bg-secondary"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-secondary"
                   onError={(e) => {
                     // 이미지 로드 실패 시 기본 이미지로 대체
                     e.target.src = "/user-profile-avatar.png";
                   }}
                 />
                 <div>
-                  <p className="font-semibold text-foreground">{post.author}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
+                  <p className="font-semibold text-foreground text-sm sm:text-base">{post.author}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                     {post.date}
                   </p>
                 </div>
               </div>
 
               {/* 위치 정보 */}
-              <div className="flex items-center gap-2 text-muted-foreground ml-auto">
-                <MapPin className="w-5 h-5" />
-                <span>{post.location}</span>
+              <div className="flex items-center gap-2 text-muted-foreground sm:ml-auto">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="text-sm sm:text-base">{post.location}</span>
               </div>
             </div>
 
@@ -647,13 +789,134 @@ export default function PostDetail() {
             </div>
           </div>
 
+          {/* AI 여행 비서 위젯 */}
+          {(() => {
+            console.log("🔍 AI 위젯 렌더링 체크:", {
+              hasPost: !!post,
+              hasAiData: !!post?.aiData,
+              aiData: post?.aiData,
+              is_travel: post?.aiData?.is_travel,
+              is_travel_type: typeof post?.aiData?.is_travel,
+              condition: post?.aiData && post?.aiData?.is_travel,
+            });
+            return post?.aiData && post?.aiData?.is_travel;
+          })() && (
+            <div className="mb-8 space-y-6">
+              {/* AI 코디 & 준비물 제안 */}
+              {post.aiData.outfit && (
+                <Card className="p-6 border-primary/20 bg-primary/5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Lightbulb className="w-5 h-5 text-primary" />
+                    <h3 className="text-xl font-bold text-foreground">
+                      AI 여행 코디 제안
+                    </h3>
+                  </div>
+                  {post.aiData.outfit.recommendations &&
+                    post.aiData.outfit.recommendations.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm font-semibold text-foreground/70 mb-2">
+                          추천 옷차림
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-foreground">
+                          {post.aiData.outfit.recommendations.map(
+                            (item, idx) => (
+                              <li key={idx}>{item}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  {post.aiData.outfit.essentials &&
+                    post.aiData.outfit.essentials.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-foreground/70 mb-2">
+                          필수 준비물
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-foreground">
+                          {post.aiData.outfit.essentials.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                </Card>
+              )}
+
+              {/* AI 타임라인 & 맛집 요약 */}
+              {post.aiData.timeline && post.aiData.timeline.length > 0 && (
+                <Card className="p-6 border-border">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <h3 className="text-xl font-bold text-foreground">
+                      AI 여행 일정 요약
+                    </h3>
+                  </div>
+                  <div className="space-y-4">
+                    {post.aiData.timeline.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex gap-4 pb-4 border-b border-border/50 last:border-0"
+                      >
+                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-bold text-primary">
+                            {item.day || idx + 1}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-foreground">
+                              {item.place}
+                            </p>
+                            {item.type === "restaurant" && (
+                              <Utensils className="w-4 h-4 text-orange-500" />
+                            )}
+                            {item.type === "cafe" && (
+                              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                카페
+                              </span>
+                            )}
+                            {item.type === "attraction" && (
+                              <MapPin className="w-4 h-4 text-blue-500" />
+                            )}
+                          </div>
+                          {item.review && (
+                            <p className="text-sm text-muted-foreground italic">
+                              {item.review}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* 일상글인 경우 간단한 AI 요약 */}
+          {post.aiData &&
+            post.aiData.is_travel === false &&
+            post.aiData.summary && (
+              <Card className="mb-8 p-4 border-border/50 bg-secondary/30">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground/70 mb-1">
+                      AI 한 줄 요약
+                    </p>
+                    <p className="text-foreground">{post.aiData.summary}</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
           {/* 여행 사진 갤러리 */}
           {postImages.length > 0 && (
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4">
                 여행 사진 ({postImages.length})
               </h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {postImages.map((imageUrl, index) => (
                   <div
                     key={index}
@@ -675,10 +938,10 @@ export default function PostDetail() {
           )}
 
           {/* 상호작용 버튼 */}
-          <div className="border-y border-border py-6 mb-8">
-            <div className="flex items-center gap-4">
+          <div className="border-y border-border py-4 sm:py-6 mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <Button
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1 sm:gap-2 text-sm sm:text-base ${
                   isLiked
                     ? "bg-red-500 hover:bg-red-600"
                     : "bg-primary hover:bg-primary/90"
@@ -687,19 +950,19 @@ export default function PostDetail() {
                 disabled={likeLoading}
               >
                 <Heart
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill={isLiked ? "currentColor" : "none"}
                 />
                 <span>{likeCount}</span>
               </Button>
               <Button
                 variant="outline"
-                className="flex items-center gap-2 border-border bg-transparent"
+                className="flex items-center gap-1 sm:gap-2 border-border bg-transparent text-sm sm:text-base"
               >
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>{post.comments}</span>
               </Button>
-              <div className="relative ml-auto" ref={shareMenuRef}>
+              <div className="relative sm:ml-auto" ref={shareMenuRef}>
                 <Button
                   variant="ghost"
                   onClick={() => setShowShareMenu(!showShareMenu)}
@@ -749,7 +1012,7 @@ export default function PostDetail() {
 
           {/* 댓글 섹션 */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">
               댓글 ({comments.length})
             </h2>
 
@@ -811,6 +1074,9 @@ export default function PostDetail() {
                     replyContent={replyContent}
                     handleSubmitReply={handleSubmitReply}
                     replyLoading={replyLoading}
+                    currentUserId={currentUserId}
+                    postAuthorId={post.authorId}
+                    onRefresh={fetchComments}
                   />
                 ))
               ) : (
@@ -826,10 +1092,10 @@ export default function PostDetail() {
 
           {/* 추천 게시글 */}
           <div className="border-t border-border pt-8">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">
               다른 여행기
             </h2>
-            <div className="grid gap-4 grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               {recommendations.map((recPost) => (
                 <Link key={recPost.id} to={`/post/${recPost.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50 h-full">
@@ -864,7 +1130,7 @@ export default function PostDetail() {
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8">
             <div>
               <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">

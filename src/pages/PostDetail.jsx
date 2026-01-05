@@ -17,7 +17,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-import { getComments, createComment, createReply } from "@/api/comments";
+import { getComments, createComment, createReply, updateComment, deleteComment } from "@/api/comments";
 import { apiJson } from "@/api/client";
 import { me } from "@/api/auth";
 
@@ -30,16 +30,60 @@ const CommentItem = ({
   replyContent,
   handleSubmitReply,
   replyLoading,
+  currentUserId,
+  postAuthorId,
+  onRefresh,
 }) => {
   const isReplying = replyTargetId === comment.id;
   const navigate = useNavigate();
   const authorId = comment.author_id || comment.author?.id;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(comment.content);
+  const [editLoading, setEditLoading] = useState(false);
 
   const handleProfileClick = () => {
     if (authorId && !comment.is_ai) {
       navigate(`/profile/${authorId}`);
     }
   };
+
+  const handleUpdate = async () => {
+    if (!editContent.trim()) return;
+    setEditLoading(true);
+    try {
+      await updateComment(comment.id, editContent);
+      setIsEditing(false);
+      onRefresh();
+    } catch (error) {
+      console.error("댓글 수정 실패:", error);
+      alert("댓글 수정에 실패했습니다.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("정말로 이 댓글을 삭제하시겠습니까?")) return;
+    try {
+      await deleteComment(comment.id);
+      onRefresh();
+    } catch (error) {
+      console.error("댓글 삭제 실패:", error);
+      alert("댓글 삭제에 실패했습니다.");
+    }
+  };
+
+  // 권한 확인
+  const canEdit =
+    currentUserId &&
+    parseInt(currentUserId) === parseInt(authorId) &&
+    !comment.is_ai;
+
+  const canDelete =
+    currentUserId &&
+    (parseInt(currentUserId) === parseInt(authorId) ||
+      parseInt(currentUserId) === parseInt(postAuthorId));
 
   return (
     <div className="flex flex-col gap-3">
@@ -73,9 +117,42 @@ const CommentItem = ({
                 </p>
               </div>
             </div>
-            <p className="text-foreground mb-2 whitespace-pre-wrap">
-              {comment.content}
-            </p>
+
+            {isEditing ? (
+              <div className="mb-2">
+                <textarea
+                  className="w-full bg-secondary/50 text-foreground rounded-lg px-3 py-2 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none mb-2"
+                  rows={2}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditContent(comment.content);
+                    }}
+                    disabled={editLoading}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleUpdate}
+                    disabled={editLoading}
+                  >
+                    저장
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-foreground mb-2 whitespace-pre-wrap">
+                {comment.content}
+              </p>
+            )}
+
             <div className="flex items-center gap-4">
               <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Heart className="w-4 h-4" />
@@ -94,6 +171,26 @@ const CommentItem = ({
               >
                 {isReplying ? "취소" : "답글달기"}
               </button>
+              {!isEditing && (
+                <>
+                  {canEdit && (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      수정
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={handleDelete}
+                      className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -142,6 +239,9 @@ const CommentItem = ({
               replyContent={replyContent}
               handleSubmitReply={handleSubmitReply}
               replyLoading={replyLoading}
+              currentUserId={currentUserId}
+              postAuthorId={postAuthorId}
+              onRefresh={onRefresh}
             />
           ))}
         </div>
@@ -973,6 +1073,9 @@ export default function PostDetail() {
                     replyContent={replyContent}
                     handleSubmitReply={handleSubmitReply}
                     replyLoading={replyLoading}
+                    currentUserId={currentUserId}
+                    postAuthorId={post.authorId}
+                    onRefresh={fetchComments}
                   />
                 ))
               ) : (

@@ -112,9 +112,7 @@ export default function AdBanner({ className = "" }) {
 
           {/* 광고 라벨 */}
           <div className="px-3 py-2 bg-muted/50">
-            <p className="text-xs text-muted-foreground text-center">
-              SPONSORED
-            </p>
+            <p className="text-xs text-muted-foreground text-center"></p>
           </div>
         </a>
 

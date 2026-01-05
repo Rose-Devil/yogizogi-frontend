@@ -249,19 +249,32 @@ export default function Home() {
 
     setLoadingNotifications(true);
     try {
-      // 현재 사용자 정보 가져오기 (임시로 토큰에서 추출하거나 API 호출)
-      // TODO: 백엔드에 /api/user/me 같은 엔드포인트가 있다면 사용
+      // 현재 사용자 정보 가져오기
       let currentUserId = null;
       try {
         const userRes = await apiFetch(`/api/user/me`);
         if (userRes.ok) {
           const userJson = await userRes.json();
-          if (userJson.success && userJson.data) {
-            currentUserId = userJson.data.id;
+          // 응답 형식: { user: { id, ... }, posts: [...], comments: [...] }
+          if (userJson.user?.id) {
+            currentUserId = userJson.user.id;
+          } else if (userJson.id) {
+            currentUserId = userJson.id;
+          } else if (userJson.success && userJson.data) {
+            currentUserId = userJson.data.id || userJson.data.user?.id;
           }
         }
       } catch (error) {
-        console.error("사용자 정보 가져오기 실패:", error);
+        // 네트워크 에러나 연결 실패는 조용히 처리 (백엔드가 없어도 앱은 정상 동작)
+        if (error.message?.includes("Failed to fetch") || 
+            error.message?.includes("ERR_CONNECTION_REFUSED") ||
+            error.name === "TypeError") {
+          // 백엔드 서버가 실행되지 않은 경우 조용히 무시하고 알림 기능 비활성화
+          setNotifications([]);
+          return;
+        }
+        // 다른 에러는 로그만 출력
+        console.warn("사용자 정보 가져오기 실패:", error.message || error);
       }
 
       if (!currentUserId) {

@@ -78,7 +78,13 @@ export async function apiFetch(input, init = {}) {
       credentials: "include" 
     })
 
-  const res = await doFetch()
+  let res
+  try {
+    res = await doFetch()
+  } catch (networkError) {
+    // 네트워크 에러 (연결 실패 등)를 그대로 throw하여 호출자가 처리할 수 있도록
+    throw networkError
+  }
   const inputForChecks = typeof requestInput === "string" ? requestInput : ""
   const shouldTryRefresh =
     res.status === 401 &&

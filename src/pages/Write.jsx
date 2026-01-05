@@ -674,16 +674,16 @@ export default function WritePage() {
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Link to="/">
-              <div className="flex items-center gap-3 cursor-pointer hover:opacity-70 transition-opacity">
+              <div className="flex items-center gap-2 sm:gap-3 cursor-pointer hover:opacity-70 transition-opacity">
                 <img
                   src="/logo.png"
                   alt="요기조기"
-                  className="w-10 h-10 rounded-lg flex-shrink-0"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex-shrink-0"
                 />
                 <span
-                  className="text-xl font-[900] text-foreground"
+                  className="text-lg sm:text-xl font-[900] text-foreground hidden sm:inline"
                   style={{
                     fontFamily: notoSansKR,
                     transform: "translate(-7px, 1.5px)",
@@ -695,27 +695,27 @@ export default function WritePage() {
             </Link>
 
             {/* 우측 버튼 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link to={isEditMode ? `/post/${id}` : "/"}>
-                <Button variant="ghost">취소</Button>
+                <Button variant="ghost" className="text-xs sm:text-sm px-2 sm:px-4">취소</Button>
               </Link>
               {isEditMode && (
                 <Button
                   variant="destructive"
-                  className="gap-2"
+                  className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
                   onClick={handleDelete}
                   disabled={deleting}
                 >
-                  <Trash2 className="w-4 h-4" />
-                  {deleting ? "삭제 중..." : "삭제"}
+                  <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{deleting ? "삭제 중..." : "삭제"}</span>
                 </Button>
               )}
               <Button
-                className="bg-primary hover:bg-primary/90 gap-2"
+                className="bg-primary hover:bg-primary/90 gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
                 onClick={handleSubmit}
                 disabled={submitting}
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-3 h-3 sm:w-4 sm:h-4" />
                 {submitting
                   ? isEditMode
                     ? "수정 중..."
@@ -729,7 +729,7 @@ export default function WritePage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">
             게시글을 불러오는 중...
@@ -741,7 +741,7 @@ export default function WritePage() {
               <input
                 type="text"
                 placeholder="여행기의 제목을 입력하세요"
-                className="w-full text-4xl font-bold text-foreground placeholder-muted-foreground/50 bg-transparent focus:outline-none border-b-2 border-transparent hover:border-border focus:border-primary pb-4 transition-colors"
+                className="w-full text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground placeholder-muted-foreground/50 bg-transparent focus:outline-none border-b-2 border-transparent hover:border-border focus:border-primary pb-4 transition-colors"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -757,7 +757,7 @@ export default function WritePage() {
                 onChange={handlePickThumbnail}
               />
               <div
-                className="relative h-64 rounded-lg bg-secondary/50 border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/70 transition-colors group overflow-hidden"
+                className="relative h-48 sm:h-64 rounded-lg bg-secondary/50 border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/70 transition-colors group overflow-hidden"
                 onClick={() => thumbnailInputRef.current?.click()}
               >
                 {thumbnailPreview && (
@@ -794,7 +794,7 @@ export default function WritePage() {
             </div>
 
             {/* 여행 정보 */}
-            <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 pb-8 border-b border-border">
               {/* 위치 */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -929,7 +929,7 @@ export default function WritePage() {
                 hidden
                 onChange={handlePickImages}
               />
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {imagePreviews.map((src, idx) => (
                   <div
                     key={`${src}-${idx}`}

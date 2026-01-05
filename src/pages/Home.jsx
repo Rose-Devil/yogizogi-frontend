@@ -249,19 +249,32 @@ export default function Home() {
 
     setLoadingNotifications(true);
     try {
-      // 현재 사용자 정보 가져오기 (임시로 토큰에서 추출하거나 API 호출)
-      // TODO: 백엔드에 /api/user/me 같은 엔드포인트가 있다면 사용
+      // 현재 사용자 정보 가져오기
       let currentUserId = null;
       try {
         const userRes = await apiFetch(`/api/user/me`);
         if (userRes.ok) {
           const userJson = await userRes.json();
-          if (userJson.success && userJson.data) {
-            currentUserId = userJson.data.id;
+          // 응답 형식: { user: { id, ... }, posts: [...], comments: [...] }
+          if (userJson.user?.id) {
+            currentUserId = userJson.user.id;
+          } else if (userJson.id) {
+            currentUserId = userJson.id;
+          } else if (userJson.success && userJson.data) {
+            currentUserId = userJson.data.id || userJson.data.user?.id;
           }
         }
       } catch (error) {
-        console.error("사용자 정보 가져오기 실패:", error);
+        // 네트워크 에러나 연결 실패는 조용히 처리 (백엔드가 없어도 앱은 정상 동작)
+        if (error.message?.includes("Failed to fetch") || 
+            error.message?.includes("ERR_CONNECTION_REFUSED") ||
+            error.name === "TypeError") {
+          // 백엔드 서버가 실행되지 않은 경우 조용히 무시하고 알림 기능 비활성화
+          setNotifications([]);
+          return;
+        }
+        // 다른 에러는 로그만 출력
+        console.warn("사용자 정보 가져오기 실패:", error.message || error);
       }
 
       if (!currentUserId) {
@@ -456,18 +469,18 @@ export default function Home() {
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
             <Link
               to="/"
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
             >
               <img
                 src="/logo.png"
                 alt="요기조기"
-                className="w-10 h-10 rounded-lg flex-shrink-0"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex-shrink-0"
               />
               <span
-                className="text-xl text-foreground"
+                className="text-lg sm:text-xl text-foreground hidden sm:inline"
                 style={{
                   fontFamily: notoSansKR,
                   fontWeight: 900,
@@ -479,46 +492,46 @@ export default function Home() {
             </Link>
 
             {/* 검색바 */}
-            <div className="flex flex-1 max-w-sm mx-8">
+            <div className="flex flex-1 max-w-sm mx-2 sm:mx-8">
               <form className="relative w-full" onSubmit={handleSearchSubmit}>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   type="text"
                   placeholder="여행지, 태그 검색..."
-                  className="w-full pl-10 pr-12 py-2 rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full pl-9 sm:pl-10 pr-10 sm:pr-12 py-1.5 sm:py-2 text-sm sm:text-base rounded-full border border-border bg-secondary/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 <Button
                   type="submit"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8"
                   aria-label="검색"
                 >
-                  <Search className="w-5 h-5" />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </form>
             </div>
 
             {/* 우측 버튼 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1 sm:gap-4">
               <Link to="/write">
-                <Button className="flex gap-2 bg-primary hover:bg-primary/90">
-                  <Plus className="w-5 h-5" />
-                  여행기 작성
+                <Button className="flex gap-1 sm:gap-2 bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2">
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">여행기 작성</span>
                 </Button>
               </Link>
               <div className="relative" ref={notificationRef}>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hover:bg-secondary relative"
+                  className="hover:bg-secondary relative h-8 w-8 sm:h-10 sm:w-10"
                   onClick={() => setShowNotifications((prev) => !prev)}
                   aria-expanded={showNotifications}
                   aria-label="알림 확인"
                 >
-                  <Bell className="w-5 h-5" />
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[1rem] rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1 flex items-center justify-center">
                       {unreadCount}
@@ -526,7 +539,7 @@ export default function Home() {
                   )}
                 </Button>
                 {showNotifications && (
-                  <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
+                  <div className="absolute right-0 mt-3 w-72 sm:w-80 rounded-2xl border border-border bg-card shadow-xl overflow-hidden z-50">
                     <div className="px-4 py-3 font-bold text-foreground border-b border-border/60">
                       알림
                     </div>
@@ -603,17 +616,19 @@ export default function Home() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="hover:bg-secondary"
+                      className="hover:bg-secondary h-8 w-8 sm:h-10 sm:w-10"
                     >
-                      <User className="w-5 h-5" />
+                      <User className="w-4 h-4 sm:w-5 sm:h-5" />
                     </Button>
                   </Link>
                   <Button
                     variant="ghost"
                     style={{ fontFamily: notoSansKR, fontWeight: 900 }}
                     onClick={logout}
+                    className="text-xs sm:text-sm px-2 sm:px-4"
                   >
-                    로그아웃
+                    <span className="hidden sm:inline">로그아웃</span>
+                    <span className="sm:hidden">로그아웃</span>
                   </Button>
                 </>
               )}
@@ -622,6 +637,7 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     style={{ fontFamily: notoSansKR, fontWeight: 900 }}
+                    className="text-xs sm:text-sm px-2 sm:px-4"
                   >
                     로그인
                   </Button>
@@ -632,9 +648,9 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* 필터 탭 */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+        <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
           {[
             { key: "all", label: "전체" },
             { key: "popular", label: "인기" },
@@ -680,7 +696,7 @@ export default function Home() {
                 인기 게시글이 없습니다.
               </div>
             ) : (
-              <div className="grid gap-6 grid-cols-4 mb-8">
+              <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-8">
                 {popularPosts.map((post) => (
                   <Link to={`/post/${post.id}`} key={post.id}>
                     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50">
@@ -769,7 +785,7 @@ export default function Home() {
         )}
 
         {/* 여행기 그리드 */}
-        <div className="grid gap-6 grid-cols-4">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {activeTab === "advertisement" ? (
             // 광고성 게시글 표시
             loadingAdvertisementPosts && advertisementPosts.length === 0 ? (
@@ -950,7 +966,7 @@ export default function Home() {
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
         <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8">
             <div>
               <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">

@@ -18,18 +18,59 @@ const AD_DATA = [
   },
 ];
 
+// 로컬스토리지 키
+const STORAGE_KEY = "adBanner_hideUntil";
+
 export default function AdBanner({ className = "" }) {
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+  // 초기 로드시 광고 표시 여부 확인
+  useEffect(() => {
+    const hideUntil = localStorage.getItem(STORAGE_KEY);
+
+    if (hideUntil) {
+      const hideUntilTime = parseInt(hideUntil, 10);
+      const now = Date.now();
+
+      // 숨김 기간이 지났으면 광고 표시
+      if (now > hideUntilTime) {
+        localStorage.removeItem(STORAGE_KEY);
+        setIsVisible(true);
+      } else {
+        setIsVisible(false);
+      }
+    } else {
+      // 숨김 설정이 없으면 광고 표시
+      setIsVisible(true);
+    }
+  }, []);
 
   // 광고 순환 (5초마다 자동 변경)
   useEffect(() => {
+    if (!isVisible) return;
+
     const interval = setInterval(() => {
       setCurrentAdIndex((prev) => (prev + 1) % AD_DATA.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isVisible]);
+
+  // 그냥 닫기
+  const handleClose = () => {
+    setIsVisible(false);
+  };
+
+  // 오늘 하루 보지 않기
+  const handleHideForToday = () => {
+    const now = Date.now();
+    const tomorrow = new Date();
+    tomorrow.setHours(24, 0, 0, 0); // 다음날 자정
+
+    localStorage.setItem(STORAGE_KEY, tomorrow.getTime().toString());
+    setIsVisible(false);
+  };
 
   if (!isVisible) return null;
 
@@ -40,7 +81,7 @@ export default function AdBanner({ className = "" }) {
       <div className="relative bg-card border border-border rounded-lg shadow-lg overflow-hidden w-64">
         {/* 닫기 버튼 */}
         <button
-          onClick={() => setIsVisible(false)}
+          onClick={handleClose}
           className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
           aria-label="광고 닫기"
         >
@@ -76,7 +117,7 @@ export default function AdBanner({ className = "" }) {
         </a>
 
         {/* 광고 인디케이터 */}
-        <div className="flex justify-center gap-1 py-2 bg-card">
+        <div className="flex justify-center gap-1 py-2 bg-card border-b border-border">
           {AD_DATA.map((_, index) => (
             <button
               key={index}
@@ -89,6 +130,24 @@ export default function AdBanner({ className = "" }) {
               aria-label={`광고 ${index + 1}로 이동`}
             />
           ))}
+        </div>
+
+        {/* 오늘 하루 보지 않기 체크박스 */}
+        <div className="px-4 py-3 bg-card">
+          <label className="flex items-center gap-2 cursor-pointer group/checkbox">
+            <input
+              type="checkbox"
+              onChange={(e) => {
+                if (e.target.checked) {
+                  handleHideForToday();
+                }
+              }}
+              className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/50 cursor-pointer"
+            />
+            <span className="text-xs text-muted-foreground group-hover/checkbox:text-foreground transition-colors">
+              오늘 하루 보지 않기
+            </span>
+          </label>
         </div>
       </div>
     </div>
@@ -106,7 +165,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background">
       <header>...</header>
       <main>...</main>
-
+      
       {/* 광고 배너 추가 *\/}
       <AdBanner />
     </div>

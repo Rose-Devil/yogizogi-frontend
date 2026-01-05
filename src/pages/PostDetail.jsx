@@ -649,14 +649,14 @@ export default function PostDetail() {
       {/* 헤더 */}
       <header className="border-b border-border bg-card sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Link
               to="/"
-              className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+              className="flex items-center gap-1 sm:gap-2 hover:opacity-70 transition-opacity"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               <span
-                className="font-semibold"
+                className="font-semibold text-sm sm:text-base"
                 style={{
                   fontFamily: "Noto Sans KR Black",
                   transform: "translateY(3px)",
@@ -665,19 +665,20 @@ export default function PostDetail() {
                 돌아가기
               </span>
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* 본인 게시글만 수정 버튼 표시 */}
               {post && currentUserId && post.authorId === currentUserId && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate(`/post/${id}/edit`)}
+                  className="text-xs sm:text-sm px-2 sm:px-4"
                 >
                   수정
                 </Button>
               )}
               <Link to="/profile">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="text-xs sm:text-sm px-2 sm:px-4">
                   프로필
                 </Button>
               </Link>
@@ -686,11 +687,11 @@ export default function PostDetail() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* 게시글 헤더 */}
         <article>
           {/* 메인 이미지 */}
-          <div className="w-full h-96 rounded-xl overflow-hidden mb-8 bg-secondary">
+          <div className="w-full h-48 sm:h-64 lg:h-96 rounded-xl overflow-hidden mb-6 sm:mb-8 bg-secondary">
             <img
               src={post.image || "/placeholder.svg"}
               alt={post.title}
@@ -700,35 +701,35 @@ export default function PostDetail() {
 
           {/* 제목 및 기본 정보 */}
           <div className="mb-6">
-            <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4 text-balance">
               {post.title}
             </h1>
 
-            <div className="flex flex-row items-center gap-4 mb-6 pb-6 border-b border-border">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-6 pb-6 border-b border-border">
               {/* 작가 정보 */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <img
                   src={post.authorAvatar || "/user-profile-avatar.png"}
                   alt={post.author}
-                  className="w-12 h-12 rounded-full bg-secondary"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-secondary"
                   onError={(e) => {
                     // 이미지 로드 실패 시 기본 이미지로 대체
                     e.target.src = "/user-profile-avatar.png";
                   }}
                 />
                 <div>
-                  <p className="font-semibold text-foreground">{post.author}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
+                  <p className="font-semibold text-foreground text-sm sm:text-base">{post.author}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                     {post.date}
                   </p>
                 </div>
               </div>
 
               {/* 위치 정보 */}
-              <div className="flex items-center gap-2 text-muted-foreground ml-auto">
-                <MapPin className="w-5 h-5" />
-                <span>{post.location}</span>
+              <div className="flex items-center gap-2 text-muted-foreground sm:ml-auto">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="text-sm sm:text-base">{post.location}</span>
               </div>
             </div>
 
@@ -912,10 +913,10 @@ export default function PostDetail() {
           {/* 여행 사진 갤러리 */}
           {postImages.length > 0 && (
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-foreground mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4">
                 여행 사진 ({postImages.length})
               </h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {postImages.map((imageUrl, index) => (
                   <div
                     key={index}
@@ -937,10 +938,10 @@ export default function PostDetail() {
           )}
 
           {/* 상호작용 버튼 */}
-          <div className="border-y border-border py-6 mb-8">
-            <div className="flex items-center gap-4">
+          <div className="border-y border-border py-4 sm:py-6 mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               <Button
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1 sm:gap-2 text-sm sm:text-base ${
                   isLiked
                     ? "bg-red-500 hover:bg-red-600"
                     : "bg-primary hover:bg-primary/90"
@@ -949,19 +950,19 @@ export default function PostDetail() {
                 disabled={likeLoading}
               >
                 <Heart
-                  className="w-5 h-5"
+                  className="w-4 h-4 sm:w-5 sm:h-5"
                   fill={isLiked ? "currentColor" : "none"}
                 />
                 <span>{likeCount}</span>
               </Button>
               <Button
                 variant="outline"
-                className="flex items-center gap-2 border-border bg-transparent"
+                className="flex items-center gap-1 sm:gap-2 border-border bg-transparent text-sm sm:text-base"
               >
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>{post.comments}</span>
               </Button>
-              <div className="relative ml-auto" ref={shareMenuRef}>
+              <div className="relative sm:ml-auto" ref={shareMenuRef}>
                 <Button
                   variant="ghost"
                   onClick={() => setShowShareMenu(!showShareMenu)}
@@ -1011,7 +1012,7 @@ export default function PostDetail() {
 
           {/* 댓글 섹션 */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">
               댓글 ({comments.length})
             </h2>
 
@@ -1091,10 +1092,10 @@ export default function PostDetail() {
 
           {/* 추천 게시글 */}
           <div className="border-t border-border pt-8">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">
               다른 여행기
             </h2>
-            <div className="grid gap-4 grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               {recommendations.map((recPost) => (
                 <Link key={recPost.id} to={`/post/${recPost.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group border-border/50 h-full">
@@ -1129,7 +1130,7 @@ export default function PostDetail() {
       {/* 푸터 */}
       <footer className="border-t border-border bg-card mt-16">
         <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-8">
             <div>
               <h4 className="font-bold text-foreground mb-4">요기조기</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">

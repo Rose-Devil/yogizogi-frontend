@@ -21,6 +21,7 @@ export default function Home() {
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const NOTIFICATION_READ_KEY = "yogizogi_read_notifications";
 
   // 실제 백엔드에서 불러올 게시글 목록
   const [posts, setPosts] = useState([]);
@@ -46,6 +47,53 @@ export default function Home() {
   const { isAuthed, logout } = useAuthStatus();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const getStoredReadNotificationIds = () => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem(NOTIFICATION_READ_KEY);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (error) {
+      console.warn("알림 읽음 상태 불러오기 실패:", error);
+      return new Set();
+    }
+  };
+
+  const persistReadNotificationIds = (ids) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        NOTIFICATION_READ_KEY,
+        JSON.stringify(Array.from(ids))
+      );
+    } catch (error) {
+      console.warn("알림 읽음 상태 저장 실패:", error);
+    }
+  };
+
+  const markNotificationAsRead = (notificationId) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) =>
+        n.id === notificationId ? { ...n, read: true } : n
+      );
+      const stored = getStoredReadNotificationIds();
+      updated
+        .filter((n) => n.read)
+        .forEach((n) => stored.add(n.id));
+      persistReadNotificationIds(stored);
+      return updated;
+    });
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      const stored = getStoredReadNotificationIds();
+      updated.forEach((n) => stored.add(n.id));
+      persistReadNotificationIds(stored);
+      return updated;
+    });
+  };
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -398,7 +446,14 @@ export default function Home() {
         return timeB - timeA;
       });
 
-      setNotifications(uniqueNotifications.slice(0, 10)); // 최대 10개만 표시
+      const limitedNotifications = uniqueNotifications.slice(0, 10); // 최대 10개만 표시
+      const storedRead = getStoredReadNotificationIds();
+      const notificationsWithRead = limitedNotifications.map((n) => ({
+        ...n,
+        read: storedRead.has(n.id),
+      }));
+
+      setNotifications(notificationsWithRead);
     } catch (error) {
       console.error("알림 로드 실패:", error);
       setNotifications([]);
@@ -559,14 +614,11 @@ export default function Home() {
                             <div
                               key={notification.id}
                               onClick={() => {
+                                markNotificationAsRead(notification.id);
                                 if (notification.postId) {
-                                  // 알림을 읽음 처리하고 제거
-                                  setNotifications((prev) =>
-                                    prev.filter((n) => n.id !== notification.id)
-                                  );
                                   navigate(`/post/${notification.postId}`);
-                                  setShowNotifications(false);
                                 }
+                                setShowNotifications(false);
                               }}
                               className={`flex items-start gap-3 px-4 py-3 transition-colors ${
                                 notification.postId
@@ -602,9 +654,10 @@ export default function Home() {
                     <div className="px-4 py-3 bg-muted/40">
                       <Button
                         variant="ghost"
+                        onClick={markAllNotificationsAsRead}
                         className="w-full justify-center text-primary hover:bg-secondary"
                       >
-                        알림 모두 보기
+                        알림 모두 읽음 처리
                       </Button>
                     </div>
                   </div>
